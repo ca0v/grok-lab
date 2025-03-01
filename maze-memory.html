@@ -9,10 +9,10 @@
             border: 1px solid black;
             margin: 20px;
             /* Pleasant border around the canvas */
-            width: calc(100vw - 40px);
-            /* Full width minus margin */
-            height: calc(100vh - 60px);
-            /* Full height minus margin and instructions */
+            width: calc(100vmin - 40px);
+            /* Smaller of viewport width or height minus margins */
+            height: calc(100vmin - 40px);
+            /* Square canvas */
             max-width: 100%;
             /* Prevent overflow */
             max-height: 100%;
@@ -54,12 +54,10 @@
         let targetColors = []; // Array to store random colors per target
 
         function updateCanvasSize() {
-            const canvasContainerWidth = window.innerWidth - 40; // Account for 20px margin on each side
-            const canvasContainerHeight = window.innerHeight - 60; // Account for margin and instructions
-            const maxSize = Math.min(canvasContainerWidth, canvasContainerHeight); // Square canvas
+            const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 60); // Smaller of width or height minus margins
             canvas.width = maxSize;
             canvas.height = maxSize;
-            gridSize = Math.floor(maxSize / mazeSize); // Dynamically adjust gridSize to fit maze
+            gridSize = Math.floor(maxSize / mazeSize); // Adjust gridSize for square canvas
         }
 
         function generateMaze(size) {
@@ -106,8 +104,16 @@
 
         function assignTargetColors() {
             targetColors = [];
+            const tankColor = 'rgb(0, 128, 0)'; // Match tank's green (approx RGB for 'green')
             for (let i = 1; i <= maxTargets; i++) {
-                targetColors[i - 1] = getRandomColor(); // Assign a unique random color for each target number
+                let color;
+                do {
+                    const r = Math.floor(Math.random() * 256);
+                    const g = Math.floor(Math.random() * 256);
+                    const b = Math.floor(Math.random() * 256);
+                    color = `rgb(${r}, ${g}, ${b})`;
+                } while (color === tankColor); // Ensure no green like the tank
+                targetColors[i - 1] = color;
             }
         }
 
@@ -193,35 +199,39 @@
 
             // Detect dark mode preference
             const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const mazeBgColor = isDarkMode ? '#333' : '#fff'; // Dark gray for dark mode, white for light mode
-            const markerColor = isDarkMode ? '#fff' : '#000'; // White marker in dark mode, black in light mode
+            const mazeBgColor = isDarkMode ? '#333' : '#fff';
+            const markerColor = isDarkMode ? '#fff' : '#000';
 
             // Draw maze
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     if (maze[y][x] === 1) {
-                        ctx.fillStyle = 'gray'; // Walls remain gray
+                        ctx.fillStyle = 'gray';
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
                     } else {
-                        ctx.fillStyle = mazeBgColor; // Open maze areas match mode
+                        ctx.fillStyle = mazeBgColor;
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
                     }
                 }
             }
 
-            // Draw targets with borders
+            // Draw targets (round with borders)
             targets.forEach(t => {
                 if (!t.hit) {
-                    // Draw border (slightly larger than target)
                     ctx.fillStyle = 'black';
-                    ctx.fillRect(t.x * gridSize - 2, t.y * gridSize - 2, gridSize + 4, gridSize + 4);
-                    // Draw target
+                    ctx.beginPath();
+                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2, gridSize / 2 + 2, 0, Math.PI * 2);
+                    ctx.fill();
                     ctx.fillStyle = t.color;
-                    ctx.fillRect(t.x * gridSize, t.y * gridSize, gridSize, gridSize);
+                    ctx.beginPath();
+                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2, gridSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
                     if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
                         ctx.fillStyle = 'white';
-                        ctx.font = '20px Arial';
-                        ctx.fillText(t.num, t.x * gridSize + 12, t.y * gridSize + 28);
+                        ctx.font = `${Math.floor(gridSize / 2)}px Arial`; // Scale font with grid
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(t.num, t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2);
                     }
                 }
             });
@@ -256,23 +266,45 @@
                 ctx.fillRect(b.x * gridSize, b.y * gridSize, 5, 5);
             });
 
-            // Draw HUD
+            // Draw scoreboard (taller banner)
+            const bannerHeight = canvas.height / 10; // 10% of canvas height
+            const fontSize = Math.floor(bannerHeight / 2.5); // Font fits in banner
+            ctx.fillStyle = isDarkMode ? '#222' : '#ddd'; // Background for banner
+            ctx.fillRect(0, 0, canvas.width, bannerHeight); // Banner rectangle
+            ctx.font = `${fontSize}px Arial`;
             ctx.fillStyle = 'black';
-            ctx.font = '16px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(`Hits: ${score.hits}  Misses: ${score.misses}  Level: ${level}`, 10, 20);
+            ctx.textBaseline = 'top';
 
+            // Hits (left)
+            ctx.textAlign = 'left';
+            ctx.fillText('Hits', 10, 10);
+            ctx.textAlign = 'center';
+            ctx.fillText(score.hits, 60, 10 + fontSize); // Centered below label
+
+            // Misses (right)
+            ctx.textAlign = 'right';
+            ctx.fillText('Misses', canvas.width - 10, 10);
+            ctx.textAlign = 'center';
+            ctx.fillText(score.misses, canvas.width - 60, 10 + fontSize); // Centered below label
+
+            // Level (center)
+            ctx.textAlign = 'center';
+            ctx.fillText(`Level: ${level}`, canvas.width / 2, 10);
+
+            // Level cleared or game over messages
             if (levelCleared) {
                 ctx.fillStyle = 'black';
-                ctx.font = '30px Arial';
+                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`; // Scaled to canvas height
                 ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillText('Level Cleared! Starting New Level...', canvas.width / 2, canvas.height / 2);
             }
 
             if (gameOver) {
                 ctx.fillStyle = 'black';
-                ctx.font = '30px Arial';
+                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`; // Scaled to canvas height
                 ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillText('Game Over! Final Score: ' + score.hits, canvas.width / 2, canvas.height / 2);
             }
         }
