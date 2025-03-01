@@ -31,12 +31,17 @@
         ? to peek numbers. Hit targets in order! Game over at 10 misses.</div>
     <canvas id="gameCanvas"></canvas>
     <script>
+
+        const BANNER_HEIGHT_PERCENT = 0.11; // 11% of canvas height
+        let bannerHeight = 0; // Will be set in updateCanvasSize
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let gridSize = 40;
-        let mazeSize = 11;
-        let level = 1;
-        let maxTargets = 5;
+
+        let mazeSize = 9; // Start at 9x9
+        let level = 0;    // Start at 0, increment to 1 on first reset
+        let maxTargets = 3; // Start with 3 targets
 
         let maze = [];
         let tank = {};
@@ -54,10 +59,11 @@
         let targetColors = []; // Array to store random colors per target
 
         function updateCanvasSize() {
-            const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 60); // Smaller of width or height minus margins
+            const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 60);
             canvas.width = maxSize;
             canvas.height = maxSize;
-            gridSize = Math.floor(maxSize / mazeSize); // Adjust gridSize for square canvas
+            gridSize = Math.floor((maxSize - bannerHeight) / mazeSize); // Adjust gridSize accounting for banner
+            bannerHeight = maxSize * BANNER_HEIGHT_PERCENT; // Set bannerHeight dynamically
         }
 
         function generateMaze(size) {
@@ -119,10 +125,13 @@
 
         function resetLevel() {
             if (gameOver) return;
-            mazeSize = 11 + 2 * (level % 3 === 0);
+
+            // Cycle maze size: 9x9, 11x11, 13x13 every 3 levels
+            const levelCycle = level % 3;
+            mazeSize = 9 + levelCycle * 2; // 9, 11, 13
             updateCanvasSize();
 
-            maxTargets = 5 + Math.floor((level - 1) / 3);
+            maxTargets = 3 + Math.floor(level / 3); // Add 1 target every 3 levels
             maze = generateMaze(mazeSize);
             tank = getRandomOpenPosition();
             tank.dir = 'right';
@@ -131,7 +140,7 @@
             tank.rotationStart = null;
 
             targets = [];
-            assignTargetColors(); // Randomize colors for this level
+            assignTargetColors();
             for (let i = 1; i <= maxTargets; i++) {
                 let pos;
                 do {
@@ -146,8 +155,8 @@
             numberTimer = 5000;
             marker = null;
             score.misses = 0;
-            level++;
             levelCleared = false;
+            level++; // Increment level at the end
         }
 
         resetLevel();
@@ -216,10 +225,10 @@
                 for (let x = 0; x < mazeSize; x++) {
                     if (maze[y][x] === 1) {
                         ctx.fillStyle = 'gray';
-                        ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+                        ctx.fillRect(x * gridSize, y * gridSize + bannerHeight, gridSize, gridSize);
                     } else {
                         ctx.fillStyle = bgColor;
-                        ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+                        ctx.fillRect(x * gridSize, y * gridSize + bannerHeight, gridSize, gridSize);
                     }
                 }
             }
@@ -228,20 +237,21 @@
         function drawTargets() {
             targets.forEach(t => {
                 if (!t.hit) {
+                    const targetRadius = (gridSize / 2) * 0.8;
                     ctx.fillStyle = 'black';
                     ctx.beginPath();
-                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2, gridSize / 2 + 2, 0, Math.PI * 2);
+                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2 + bannerHeight, targetRadius + 2, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = t.color;
                     ctx.beginPath();
-                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2, gridSize / 2, 0, Math.PI * 2);
+                    ctx.arc(t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2 + bannerHeight, targetRadius, 0, Math.PI * 2);
                     ctx.fill();
                     if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
                         ctx.fillStyle = 'white';
-                        ctx.font = `${Math.floor(gridSize / 2)}px Arial`;
+                        ctx.font = `${Math.floor(targetRadius)}px Arial`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
-                        ctx.fillText(t.num, t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2);
+                        ctx.fillText(t.num, t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2 + bannerHeight);
                     }
                 }
             });
@@ -253,13 +263,13 @@
                 ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('x', marker.x * gridSize + gridSize / 2, marker.y * gridSize + gridSize / 2);
+                ctx.fillText('x', marker.x * gridSize + gridSize / 2, marker.y * gridSize + gridSize / 2 + bannerHeight);
             }
         }
 
         function drawTank() {
             ctx.save();
-            ctx.translate(tank.x * gridSize + gridSize / 2, tank.y * gridSize + gridSize / 2);
+            ctx.translate(tank.x * gridSize + gridSize / 2, tank.y * gridSize + gridSize / 2 + bannerHeight);
             ctx.fillStyle = 'green';
             ctx.beginPath();
             ctx.arc(0, 0, gridSize / 2 - 5, 0, Math.PI * 2);
@@ -276,29 +286,32 @@
         function drawBullets() {
             ctx.fillStyle = 'red';
             bullets.forEach(b => {
-                ctx.fillRect(b.x * gridSize, b.y * gridSize, 5, 5);
+                ctx.fillRect(b.x * gridSize, b.y * gridSize + bannerHeight, 5, 5);
             });
         }
 
         function drawScoreboard(isDarkMode) {
-            const bannerHeight = canvas.height / 10;
             const fontSize = Math.floor(bannerHeight / 2.5);
             ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
             ctx.fillRect(0, 0, canvas.width, bannerHeight);
             ctx.font = `${fontSize}px Arial`;
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = isDarkMode ? '#fff' : 'black';
             ctx.textBaseline = 'top';
 
             ctx.textAlign = 'left';
             ctx.fillText('Hits', 10, 10);
+            ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
             ctx.textAlign = 'center';
             ctx.fillText(score.hits, 60, 10 + fontSize);
 
+            ctx.fillStyle = isDarkMode ? '#fff' : 'black';
             ctx.textAlign = 'right';
             ctx.fillText('Misses', canvas.width - 10, 10);
+            ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
             ctx.textAlign = 'center';
             ctx.fillText(score.misses, canvas.width - 60, 10 + fontSize);
 
+            ctx.fillStyle = isDarkMode ? '#fff' : 'black';
             ctx.textAlign = 'center';
             ctx.fillText(`Level: ${level}`, canvas.width / 2, 10);
         }
