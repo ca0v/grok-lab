@@ -43,6 +43,7 @@
                 this.CANVAS_MARGIN_HORIZONTAL = 40;
                 this.CANVAS_MARGIN_VERTICAL = 60;
                 this.MAX_MISSES = 5;
+                this.BULLET_SPEED = 0.2; // Bullet moves 0.2 cells per frame
 
                 // Canvas setup
                 this.canvas = document.getElementById('gameCanvas');
@@ -218,8 +219,10 @@
 
             checkBulletCollision(bullet) {
                 let hitTarget = false;
+                const gridX = Math.floor(bullet.x);
+                const gridY = Math.floor(bullet.y);
                 this.targets.forEach(t => {
-                    if (!t.hit && bullet.x === t.x && bullet.y === t.y) {
+                    if (!t.hit && gridX === t.x && gridY === t.y) {
                         hitTarget = true;
                         if (t.num === this.currentTarget) {
                             t.hit = true;
@@ -231,7 +234,7 @@
                         }
                     }
                 });
-                if (!hitTarget && (bullet.x < 0 || bullet.x >= this.mazeSize || bullet.y < 0 || bullet.y >= this.mazeSize || this.maze[bullet.y][bullet.x] === 1)) {
+                if (!hitTarget && (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1)) {
                     this.score.misses++;
                 }
                 return hitTarget;
@@ -301,13 +304,17 @@
                             newX++;
                             break;
                         case ' ':
-                            let bullet = { x: this.tank.x, y: this.tank.y, dir: this.tank.dir };
+                            let bullet = {
+                                x: this.tank.x + 0.5, // Center of tank in grid units
+                                y: this.tank.y + 0.5,
+                                dir: this.tank.dir
+                            };
                             if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
                             else this.bullets.push(bullet);
                             break;
                         case 'x': case 'X':
                             if (!this.marker) {
-                                this.marker = { x: this.tank.x, y: this.tank.y }; // Fixed: use tank position
+                                this.marker = { x: this.tank.x, y: this.tank.y };
                             } else {
                                 this.tank.x = this.marker.x;
                                 this.tank.y = this.marker.y;
@@ -375,12 +382,14 @@
 
                 this.bullets = this.bullets.filter(b => {
                     switch (b.dir) {
-                        case 'up': b.y--; break;
-                        case 'down': b.y++; break;
-                        case 'left': b.x--; break;
-                        case 'right': b.x++; break;
+                        case 'up': b.y -= this.BULLET_SPEED; break;
+                        case 'down': b.y += this.BULLET_SPEED; break;
+                        case 'left': b.x -= this.BULLET_SPEED; break;
+                        case 'right': b.x += this.BULLET_SPEED; break;
                     }
-                    if (b.x < 0 || b.x >= this.mazeSize || b.y < 0 || b.y >= this.mazeSize || this.maze[b.y][b.x] === 1) {
+                    const gridX = Math.floor(b.x);
+                    const gridY = Math.floor(b.y);
+                    if (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1) {
                         this.score.misses++;
                         return false;
                     }
