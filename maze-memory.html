@@ -32,6 +32,9 @@
     <canvas id="gameCanvas"></canvas>
     <script>
 
+        const CANVAS_MARGIN_HORIZONTAL = 40; // 20px left + 20px right
+        const CANVAS_MARGIN_VERTICAL = 60;   // 20px top + 20px bottom + ~20px instructions
+
         const BANNER_HEIGHT_PERCENT = 0.11; // 11% of canvas height
         let bannerHeight = 0; // Will be set in updateCanvasSize
 
@@ -59,11 +62,11 @@
         let targetColors = []; // Array to store random colors per target
 
         function updateCanvasSize() {
-            const maxSize = Math.min(window.innerWidth - 40, window.innerHeight - 60);
-            canvas.width = maxSize;
-            canvas.height = maxSize;
-            gridSize = Math.floor((maxSize - bannerHeight) / mazeSize); // Adjust gridSize accounting for banner
-            bannerHeight = maxSize * BANNER_HEIGHT_PERCENT; // Set bannerHeight dynamically
+            const maxCanvasSize = Math.min(window.innerWidth - CANVAS_MARGIN_HORIZONTAL, window.innerHeight - CANVAS_MARGIN_VERTICAL);
+            canvas.width = maxCanvasSize;
+            canvas.height = maxCanvasSize;
+            bannerHeight = maxCanvasSize * BANNER_HEIGHT_PERCENT;
+            gridSize = Math.floor(maxCanvasSize / (mazeSize + BANNER_HEIGHT_PERCENT));
         }
 
         function generateMaze(size) {
