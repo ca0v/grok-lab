@@ -317,7 +317,13 @@
             ctx.fillStyle = isDarkMode ? '#fff' : 'black';
             ctx.textAlign = 'center';
             ctx.fillText(`Level: ${level}`, canvas.width / 2, 10);
+            // Countdown below Level
+            if (showNumbers && numberTimer > 0) {
+                const countdown = Math.ceil(numberTimer / 1000); // Convert ms to seconds
+                ctx.fillText(countdown, canvas.width / 2, 10 + fontSize);
+            }
         }
+
 
         function drawMessages() {
             if (levelCleared) {
@@ -359,9 +365,19 @@
         }
 
         document.addEventListener('keydown', e => {
-            if (gameOver || levelCleared || (showNumbers && numberTimer > 0)) return;
+            if (gameOver || levelCleared) return;
             if (keysPressed[e.key]) return;
             keysPressed[e.key] = true;
+
+            // End countdown early on navigation key press
+            if (showNumbers && numberTimer > 0 &&
+                ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                showNumbers = false;
+                numberTimer = 0;
+                return; // Skip further processing during countdown
+            }
+
+            if (showNumbers && numberTimer > 0) return; // Block other actions during countdown
 
             let newX = tank.x, newY = tank.y;
             let newDir = tank.dir;
@@ -454,9 +470,10 @@
         function update() {
             if (gameOver || levelCleared) return;
 
-            if (showNumbers) {
-                numberTimer -= 16;
-                if (numberTimer <= 0) showNumbers = false;
+            if (showNumbers && numberTimer > 0) {
+                numberTimer -= 16; // Decrease timer
+                if (numberTimer <= 0) showNumbers = false; // Auto-end countdown
+                return; // Pause other updates during countdown
             }
 
             if (peekTimer > 0) {
@@ -498,7 +515,7 @@
                 return true;
             });
 
-            if (score.misses >= 10) {
+            if (score.misses >= 5) {
                 gameOver = true;
             } else if (targets.every(t => t.hit)) {
                 levelCleared = true;
