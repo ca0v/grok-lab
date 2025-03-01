@@ -7,11 +7,21 @@
     <style>
         canvas {
             border: 1px solid black;
+            margin: 20px;
+            /* Pleasant border around the canvas */
+            width: calc(100vw - 40px);
+            /* Full width minus margin */
+            height: calc(100vh - 60px);
+            /* Full height minus margin and instructions */
+            max-width: 100%;
+            /* Prevent overflow */
+            max-height: 100%;
+            box-sizing: border-box;
         }
 
         #instructions {
             font-family: Arial, sans-serif;
-            margin: 10px;
+            margin: 10px 20px;
         }
     </style>
 </head>
@@ -23,7 +33,7 @@
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const gridSize = 40;
+        let gridSize = 40;
         let mazeSize = 11;
         let level = 1;
         let maxTargets = 5;
@@ -44,8 +54,12 @@
         let targetColors = []; // Array to store random colors per target
 
         function updateCanvasSize() {
-            canvas.width = mazeSize * gridSize;
-            canvas.height = mazeSize * gridSize;
+            const canvasContainerWidth = window.innerWidth - 40; // Account for 20px margin on each side
+            const canvasContainerHeight = window.innerHeight - 60; // Account for margin and instructions
+            const maxSize = Math.min(canvasContainerWidth, canvasContainerHeight); // Square canvas
+            canvas.width = maxSize;
+            canvas.height = maxSize;
+            gridSize = Math.floor(maxSize / mazeSize); // Dynamically adjust gridSize to fit maze
         }
 
         function generateMaze(size) {
@@ -184,7 +198,7 @@
 
             // Draw maze
             for (let y = 0; y < mazeSize; y++) {
-                for (let x = 0; x < mazeSize; x++) { // Fixed syntax: ')' instead of '>'
+                for (let x = 0; x < mazeSize; x++) {
                     if (maze[y][x] === 1) {
                         ctx.fillStyle = 'gray'; // Walls remain gray
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
@@ -195,9 +209,13 @@
                 }
             }
 
-            // Draw targets
+            // Draw targets with borders
             targets.forEach(t => {
                 if (!t.hit) {
+                    // Draw border (slightly larger than target)
+                    ctx.fillStyle = 'black';
+                    ctx.fillRect(t.x * gridSize - 2, t.y * gridSize - 2, gridSize + 4, gridSize + 4);
+                    // Draw target
                     ctx.fillStyle = t.color;
                     ctx.fillRect(t.x * gridSize, t.y * gridSize, gridSize, gridSize);
                     if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
@@ -210,7 +228,7 @@
 
             // Draw marker
             if (marker) {
-                ctx.fillStyle = markerColor; // Black in light mode, white in dark mode
+                ctx.fillStyle = markerColor;
                 ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
