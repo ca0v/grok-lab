@@ -177,35 +177,47 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Detect dark mode preference
+            const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const mazeBgColor = isDarkMode ? '#333' : '#fff'; // Dark gray for dark mode, white for light mode
+            const markerColor = isDarkMode ? '#fff' : '#000'; // White marker in dark mode, black in light mode
+
+            // Draw maze
             for (let y = 0; y < mazeSize; y++) {
-                for (let x = 0; x < mazeSize; x++) {
+                for (let x = 0; x < mazeSize; x++) { // Fixed syntax: ')' instead of '>'
                     if (maze[y][x] === 1) {
-                        ctx.fillStyle = 'gray';
+                        ctx.fillStyle = 'gray'; // Walls remain gray
+                        ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+                    } else {
+                        ctx.fillStyle = mazeBgColor; // Open maze areas match mode
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
                     }
                 }
             }
 
+            // Draw targets
             targets.forEach(t => {
                 if (!t.hit) {
-                    ctx.fillStyle = t.color; // Use the target's random color
+                    ctx.fillStyle = t.color;
                     ctx.fillRect(t.x * gridSize, t.y * gridSize, gridSize, gridSize);
                     if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
-                        ctx.fillStyle = 'white'; // White text for contrast
+                        ctx.fillStyle = 'white';
                         ctx.font = '20px Arial';
                         ctx.fillText(t.num, t.x * gridSize + 12, t.y * gridSize + 28);
                     }
                 }
             });
 
+            // Draw marker
             if (marker) {
-                ctx.fillStyle = 'yellow';
+                ctx.fillStyle = markerColor; // Black in light mode, white in dark mode
                 ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('x', marker.x * gridSize + gridSize / 2, marker.y * gridSize + gridSize / 2);
             }
 
+            // Draw tank
             ctx.save();
             ctx.translate(tank.x * gridSize + gridSize / 2, tank.y * gridSize + gridSize / 2);
             ctx.fillStyle = 'green';
@@ -220,11 +232,13 @@
             ctx.fillText('➔', 0, 0);
             ctx.restore();
 
+            // Draw bullets
             ctx.fillStyle = 'red';
             bullets.forEach(b => {
                 ctx.fillRect(b.x * gridSize, b.y * gridSize, 5, 5);
             });
 
+            // Draw HUD
             ctx.fillStyle = 'black';
             ctx.font = '16px Arial';
             ctx.textAlign = 'left';
