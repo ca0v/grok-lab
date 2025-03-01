@@ -197,25 +197,35 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Detect dark mode preference
+            // Detect dark mode preference (used across sub-methods)
             const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
             const mazeBgColor = isDarkMode ? '#333' : '#fff';
             const markerColor = isDarkMode ? '#fff' : '#000';
 
-            // Draw maze
+            drawMaze(mazeBgColor);
+            drawTargets();
+            drawMarker(markerColor);
+            drawTank();
+            drawBullets();
+            drawScoreboard(isDarkMode);
+            drawMessages();
+        }
+
+        function drawMaze(bgColor) {
             for (let y = 0; y < mazeSize; y++) {
                 for (let x = 0; x < mazeSize; x++) {
                     if (maze[y][x] === 1) {
                         ctx.fillStyle = 'gray';
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
                     } else {
-                        ctx.fillStyle = mazeBgColor;
+                        ctx.fillStyle = bgColor;
                         ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
                     }
                 }
             }
+        }
 
-            // Draw targets (round with borders)
+        function drawTargets() {
             targets.forEach(t => {
                 if (!t.hit) {
                     ctx.fillStyle = 'black';
@@ -228,24 +238,26 @@
                     ctx.fill();
                     if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
                         ctx.fillStyle = 'white';
-                        ctx.font = `${Math.floor(gridSize / 2)}px Arial`; // Scale font with grid
+                        ctx.font = `${Math.floor(gridSize / 2)}px Arial`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         ctx.fillText(t.num, t.x * gridSize + gridSize / 2, t.y * gridSize + gridSize / 2);
                     }
                 }
             });
+        }
 
-            // Draw marker
+        function drawMarker(color) {
             if (marker) {
-                ctx.fillStyle = markerColor;
+                ctx.fillStyle = color;
                 ctx.font = '30px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('x', marker.x * gridSize + gridSize / 2, marker.y * gridSize + gridSize / 2);
             }
+        }
 
-            // Draw tank
+        function drawTank() {
             ctx.save();
             ctx.translate(tank.x * gridSize + gridSize / 2, tank.y * gridSize + gridSize / 2);
             ctx.fillStyle = 'green';
@@ -259,42 +271,42 @@
             ctx.textBaseline = 'middle';
             ctx.fillText('➔', 0, 0);
             ctx.restore();
+        }
 
-            // Draw bullets
+        function drawBullets() {
             ctx.fillStyle = 'red';
             bullets.forEach(b => {
                 ctx.fillRect(b.x * gridSize, b.y * gridSize, 5, 5);
             });
+        }
 
-            // Draw scoreboard (taller banner)
-            const bannerHeight = canvas.height / 10; // 10% of canvas height
-            const fontSize = Math.floor(bannerHeight / 2.5); // Font fits in banner
-            ctx.fillStyle = isDarkMode ? '#222' : '#ddd'; // Background for banner
-            ctx.fillRect(0, 0, canvas.width, bannerHeight); // Banner rectangle
+        function drawScoreboard(isDarkMode) {
+            const bannerHeight = canvas.height / 10;
+            const fontSize = Math.floor(bannerHeight / 2.5);
+            ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
+            ctx.fillRect(0, 0, canvas.width, bannerHeight);
             ctx.font = `${fontSize}px Arial`;
             ctx.fillStyle = 'black';
             ctx.textBaseline = 'top';
 
-            // Hits (left)
             ctx.textAlign = 'left';
             ctx.fillText('Hits', 10, 10);
             ctx.textAlign = 'center';
-            ctx.fillText(score.hits, 60, 10 + fontSize); // Centered below label
+            ctx.fillText(score.hits, 60, 10 + fontSize);
 
-            // Misses (right)
             ctx.textAlign = 'right';
             ctx.fillText('Misses', canvas.width - 10, 10);
             ctx.textAlign = 'center';
-            ctx.fillText(score.misses, canvas.width - 60, 10 + fontSize); // Centered below label
+            ctx.fillText(score.misses, canvas.width - 60, 10 + fontSize);
 
-            // Level (center)
             ctx.textAlign = 'center';
             ctx.fillText(`Level: ${level}`, canvas.width / 2, 10);
+        }
 
-            // Level cleared or game over messages
+        function drawMessages() {
             if (levelCleared) {
                 ctx.fillStyle = 'black';
-                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`; // Scaled to canvas height
+                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('Level Cleared! Starting New Level...', canvas.width / 2, canvas.height / 2);
@@ -302,7 +314,7 @@
 
             if (gameOver) {
                 ctx.fillStyle = 'black';
-                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`; // Scaled to canvas height
+                ctx.font = `${Math.floor(canvas.height / 20)}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('Game Over! Final Score: ' + score.hits, canvas.width / 2, canvas.height / 2);
