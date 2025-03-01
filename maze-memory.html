@@ -1,29 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>Tank Memory Maze</title>
     <style>
         body {
-            overflow: hidden; /* Prevent scrolling */
-            margin: 0; /* Remove default margin */
+            overflow: hidden;
+            /* Prevent scrolling */
+            margin: 0;
+            /* Remove default margin */
         }
+
         canvas {
             border: 1px solid black;
             margin: 20px;
-            width: calc(100vmin - 40px); /* Square maze width */
-            height: calc((100vmin - 40px) * (1 + 0.11)); /* Add 11% for scoreboard */
+            width: calc(100vmin - 40px);
+            /* Square maze width */
+            height: calc((100vmin - 40px) * (1 + 0.11));
+            /* Add 11% for scoreboard */
             max-width: 100%;
             box-sizing: border-box;
         }
+
         #instructions {
             font-family: Arial, sans-serif;
             margin: 10px 20px;
         }
     </style>
 </head>
+
 <body>
-    <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker, ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
+    <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
+        ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
     <canvas id="gameCanvas"></canvas>
     <script>
         class MazeMemoryGame {
@@ -38,6 +47,8 @@
                 // Canvas setup
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
+                this.gridSize = this.GRID_SIZE;
+                this.topBorderSize = 0;
                 this.updateCanvasSize();
 
                 // Game state
@@ -71,6 +82,7 @@
                 this.bannerHeight = maxSize * this.BANNER_HEIGHT_PERCENT;
                 this.canvas.height = maxSize + this.bannerHeight;
                 this.gridSize = Math.floor(maxSize / this.mazeSize);
+                this.topBorderSize = this.gridSize; // Set top border to match one row
             }
 
             generateMaze() {
@@ -235,7 +247,7 @@
                         e.preventDefault();
                     }
 
-                    if (this.showNumbers && this.numberTimer > 0 && 
+                    if (this.showNumbers && this.numberTimer > 0 &&
                         ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                         this.showNumbers = false;
                         this.numberTimer = 0;
@@ -295,7 +307,7 @@
                             break;
                         case 'x': case 'X':
                             if (!this.marker) {
-                                this.marker = this.getRandomOpenPosition();
+                                this.marker = { x: this.tank.x, y: this.tank.y }; // Fixed: use tank position
                             } else {
                                 this.tank.x = this.marker.x;
                                 this.tank.y = this.marker.y;
@@ -400,7 +412,7 @@
                 for (let y = 0; y < this.mazeSize; y++) {
                     for (let x = 0; x < this.mazeSize; x++) {
                         this.ctx.fillStyle = this.maze[y][x] === 1 ? 'gray' : bgColor;
-                        this.ctx.fillRect(x * this.gridSize, y * this.gridSize, this.gridSize, this.gridSize);
+                        this.ctx.fillRect(x * this.gridSize, y * this.gridSize + this.topBorderSize, this.gridSize, this.gridSize);
                     }
                 }
             }
@@ -411,18 +423,18 @@
                         const targetRadius = (this.gridSize / 2) * 0.8;
                         this.ctx.fillStyle = 'black';
                         this.ctx.beginPath();
-                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2, targetRadius + 2, 0, Math.PI * 2);
+                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius + 2, 0, Math.PI * 2);
                         this.ctx.fill();
                         this.ctx.fillStyle = t.color;
                         this.ctx.beginPath();
-                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2, targetRadius, 0, Math.PI * 2);
+                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
                         if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0) {
                             this.ctx.fillStyle = 'white';
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
                             this.ctx.textBaseline = 'middle';
-                            this.ctx.fillText(t.num, t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2);
+                            this.ctx.fillText(t.num, t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                         }
                     }
                 });
@@ -434,13 +446,13 @@
                     this.ctx.font = '30px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('x', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2);
+                    this.ctx.fillText('x', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 }
             }
 
             drawTank() {
                 this.ctx.save();
-                this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2);
+                this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = 'green';
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, this.gridSize / 2 - 5, 0, Math.PI * 2);
@@ -457,7 +469,7 @@
             drawBullets() {
                 this.ctx.fillStyle = 'red';
                 this.bullets.forEach(b => {
-                    this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize, 5, 5);
+                    this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize + this.topBorderSize, 5, 5);
                 });
             }
 
@@ -520,4 +532,5 @@
         new MazeMemoryGame();
     </script>
 </body>
+
 </html>
