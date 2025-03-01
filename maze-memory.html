@@ -44,6 +44,7 @@
                 this.CANVAS_MARGIN_VERTICAL = 60;
                 this.MAX_MISSES = 5;
                 this.BULLET_SPEED = 0.2; // Bullet moves 0.2 cells per frame
+                this.TANK_SPEED = 0.25; // Add: ~4 cells/sec at 60 FPS
 
                 // Canvas setup
                 this.canvas = document.getElementById('gameCanvas');
@@ -57,7 +58,7 @@
                 this.level = 0;
                 this.maxTargets = 3;
                 this.maze = [];
-                this.tank = {};
+                this.tank = { x: 0, y: 0, dir: 'right', currentAngle: 0, targetAngle: 0, rotationStart: null, desiredX: 0, desiredY: 0, desiredDir: 'right' };
                 this.targets = [];
                 this.bullets = [];
                 this.currentTarget = 1;
@@ -151,11 +152,18 @@
                 this.updateCanvasSize();
                 this.maxTargets = 3 + Math.floor(this.level / 3);
                 this.maze = this.generateMaze();
-                this.tank = this.getRandomOpenPosition();
-                this.tank.dir = 'right';
-                this.tank.currentAngle = 0;
-                this.tank.targetAngle = 0;
-                this.tank.rotationStart = null;
+                const startPos = this.getRandomOpenPosition();
+                this.tank = {
+                    x: startPos.x,
+                    y: startPos.y,
+                    dir: 'right',
+                    currentAngle: 0,
+                    targetAngle: 0,
+                    rotationStart: null,
+                    desiredX: startPos.x,
+                    desiredY: startPos.y,
+                    desiredDir: 'right'
+                };
                 this.targets = [];
                 this.assignTargetColors();
                 for (let i = 1; i <= this.maxTargets; i++) {
@@ -261,31 +269,24 @@
 
                     let newX = this.tank.x, newY = this.tank.y;
                     let newDir = this.tank.dir;
+                    let isMoveFar = false;
 
                     switch (e.key) {
                         case 'w': case 'W':
                             newDir = 'up';
-                            const upPos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                            newX = upPos.x;
-                            newY = upPos.y;
+                            isMoveFar = true;
                             break;
                         case 's': case 'S':
                             newDir = 'down';
-                            const downPos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                            newX = downPos.x;
-                            newY = downPos.y < this.mazeSize - 1 ? downPos.y : this.tank.y;
+                            isMoveFar = true;
                             break;
                         case 'a': case 'A':
                             newDir = 'left';
-                            const leftPos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                            newX = leftPos.x;
-                            newY = leftPos.y;
+                            isMoveFar = true;
                             break;
                         case 'd': case 'D':
                             newDir = 'right';
-                            const rightPos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                            newX = rightPos.x;
-                            newY = rightPos.y;
+                            isMoveFar = true;
                             break;
                         case 'ArrowUp':
                             newDir = 'up';
@@ -304,33 +305,47 @@
                             newX++;
                             break;
                         case ' ':
-                            let bullet = {
-                                x: this.tank.x + 0.5, // Center of tank in grid units
-                                y: this.tank.y + 0.5,
-                                dir: this.tank.dir
-                            };
+                            let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
                             if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
                             else this.bullets.push(bullet);
-                            break;
+                            return;
                         case 'x': case 'X':
                             if (!this.marker) {
                                 this.marker = { x: this.tank.x, y: this.tank.y };
                             } else {
-                                this.tank.x = this.marker.x;
-                                this.tank.y = this.marker.y;
+                                this.tank.desiredX = this.marker.x;
+                                this.tank.desiredY = this.marker.y;
                                 this.marker = null;
                             }
                             return;
                         case '?':
                             this.peekTimer = 1000;
-                            break;
+                            return;
                     }
 
-                    if (this.maze[newY] && this.maze[newY][newX] === 0) {
+                    if (isMoveFar) {
+                        const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
+                        this.tank.desiredX = pos.x;
+                        this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                        this.tank.desiredDir = newDir;
+                        if (newDir !== this.tank.dir) { // Update direction immediately
+                            this.tank.dir = newDir;
+                            this.tank.rotationStart = performance.now();
+                            switch (newDir) {
+                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
+                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
+                                case 'left': this.tank.targetAngle = Math.PI; break;
+                                case 'right': this.tank.targetAngle = 0; break;
+                            }
+                        }
+                    } else if (this.maze[newY] && this.maze[newY][newX] === 0) {
                         this.tank.x = newX;
                         this.tank.y = newY;
+                        this.tank.desiredX = newX;
+                        this.tank.desiredY = newY;
                         if (newDir !== this.tank.dir) {
                             this.tank.dir = newDir;
+                            this.tank.desiredDir = newDir;
                             this.tank.rotationStart = performance.now();
                             switch (newDir) {
                                 case 'up': this.tank.targetAngle = -Math.PI / 2; break;
@@ -359,6 +374,22 @@
                 if (this.peekTimer > 0) {
                     this.peekTimer -= 16;
                     if (this.peekTimer < 0) this.peekTimer = 0;
+                }
+
+                // Smooth tank movement
+                if (this.tank.x !== this.tank.desiredX || this.tank.y !== this.tank.desiredY) {
+                    const dx = this.tank.desiredX - this.tank.x;
+                    const dy = this.tank.desiredY - this.tank.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance > this.TANK_SPEED) {
+                        const moveX = (dx / distance) * this.TANK_SPEED;
+                        const moveY = (dy / distance) * this.TANK_SPEED;
+                        this.tank.x += moveX;
+                        this.tank.y += moveY;
+                    } else {
+                        this.tank.x = this.tank.desiredX;
+                        this.tank.y = this.tank.desiredY;
+                    }
                 }
 
                 if (this.tank.rotationStart !== null) {
