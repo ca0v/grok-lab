@@ -14,51 +14,77 @@
 
         canvas {
             border: 1px solid black;
-            margin: 20px;
+            margin: 20px auto;
+            /* Top/bottom 20px, left/right auto for centering */
             width: calc(100vmin - 40px);
             /* Square maze width */
             height: calc((100vmin - 40px) * (1 + 0.11));
             /* Add 11% for scoreboard */
             max-width: 100%;
             box-sizing: border-box;
+            display: block;
+            /* Ensure block-level for auto margins */
         }
 
         #instructions {
+            position: absolute;
+            top: 50%;
+            font-size: x-large;
+            left: 0;
+            right: 0;
+            text-align: center;
             font-family: Arial, sans-serif;
             margin: 10px 20px;
+            animation: fadeOut 30s ease forwards;
+            color: red;
+        }
+
+        @keyframes fadeOut {
+            0% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                display: none;
+            }
         }
     </style>
 </head>
 
 <body>
+    <canvas id="gameCanvas"></canvas>
     <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
         ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
-    <canvas id="gameCanvas"></canvas>
     <script>
         class MazeMemoryGame {
             constructor() {
-                // Constants
                 this.GRID_SIZE = 40;
                 this.BANNER_HEIGHT_PERCENT = 0.11;
                 this.CANVAS_MARGIN_HORIZONTAL = 40;
                 this.CANVAS_MARGIN_VERTICAL = 60;
                 this.MAX_MISSES = 5;
-                this.BULLET_SPEED = 0.2; // Bullet moves 0.2 cells per frame
-                this.TANK_SPEED = 0.25; // Add: ~4 cells/sec at 60 FPS
+                this.BULLET_SPEED = 0.2;
+                this.TANK_SPEED = 0.25;
 
-                // Canvas setup
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.gridSize = this.GRID_SIZE;
                 this.topBorderSize = 0;
                 this.updateCanvasSize();
 
-                // Game state
-                this.mazeSize = 9; // Starts at 9x9
+                this.mazeSize = 9;
                 this.level = 0;
                 this.maxTargets = 3;
                 this.maze = [];
-                this.tank = { x: 0, y: 0, dir: 'right', currentAngle: 0, targetAngle: 0, rotationStart: null, desiredX: 0, desiredY: 0, desiredDir: 'right' };
+                this.tank = {
+                    x: 0, y: 0, dir: 'right', currentAngle: 0, targetAngle: 0, rotationStart: null,
+                    desiredX: 0, desiredY: 0, desiredDir: 'right', ignoreCollisions: false // Add this
+                };
                 this.targets = [];
                 this.bullets = [];
                 this.currentTarget = 1;
@@ -72,7 +98,6 @@
                 this.levelCleared = false;
                 this.targetColors = [];
 
-                // Initialize game
                 this.resetLevel();
                 this.setupEventListeners();
                 this.gameLoop();
@@ -315,6 +340,7 @@
                             } else {
                                 this.tank.desiredX = this.marker.x;
                                 this.tank.desiredY = this.marker.y;
+                                this.tank.ignoreCollisions = true; // Allow passing through walls
                                 this.marker = null;
                             }
                             return;
@@ -328,7 +354,8 @@
                         this.tank.desiredX = pos.x;
                         this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
                         this.tank.desiredDir = newDir;
-                        if (newDir !== this.tank.dir) { // Update direction immediately
+                        this.tank.ignoreCollisions = false; // Respect walls for moveFar
+                        if (newDir !== this.tank.dir) {
                             this.tank.dir = newDir;
                             this.tank.rotationStart = performance.now();
                             switch (newDir) {
@@ -343,6 +370,7 @@
                         this.tank.y = newY;
                         this.tank.desiredX = newX;
                         this.tank.desiredY = newY;
+                        this.tank.ignoreCollisions = false; // Respect walls for arrow keys
                         if (newDir !== this.tank.dir) {
                             this.tank.dir = newDir;
                             this.tank.desiredDir = newDir;
@@ -376,7 +404,7 @@
                     if (this.peekTimer < 0) this.peekTimer = 0;
                 }
 
-                // Smooth tank movement
+                // Smooth tank movement with conditional collision detection
                 if (this.tank.x !== this.tank.desiredX || this.tank.y !== this.tank.desiredY) {
                     const dx = this.tank.desiredX - this.tank.x;
                     const dy = this.tank.desiredY - this.tank.y;
@@ -384,11 +412,31 @@
                     if (distance > this.TANK_SPEED) {
                         const moveX = (dx / distance) * this.TANK_SPEED;
                         const moveY = (dy / distance) * this.TANK_SPEED;
-                        this.tank.x += moveX;
-                        this.tank.y += moveY;
+                        const nextX = this.tank.x + moveX;
+                        const nextY = this.tank.y + moveY;
+                        const gridX = Math.floor(nextX);
+                        const gridY = Math.floor(nextY);
+
+                        if (this.tank.ignoreCollisions) {
+                            // Move through walls when ignoreCollisions is true
+                            this.tank.x = nextX;
+                            this.tank.y = nextY;
+                        } else {
+                            // Check collision when ignoreCollisions is false
+                            if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
+                                this.tank.x = nextX;
+                                this.tank.y = nextY;
+                            } else {
+                                this.tank.x = Math.round(this.tank.x);
+                                this.tank.y = Math.round(this.tank.y);
+                                this.tank.desiredX = this.tank.x;
+                                this.tank.desiredY = this.tank.y;
+                            }
+                        }
                     } else {
                         this.tank.x = this.tank.desiredX;
                         this.tank.y = this.tank.desiredY;
+                        this.tank.ignoreCollisions = false; // Reset flag when destination reached
                     }
                 }
 
