@@ -5,16 +5,17 @@
     <meta charset="UTF-8">
     <title>Tank Memory Maze</title>
     <style>
+        body {
+            overflow: hidden;
+            /* Prevents scrolling of the entire page */
+        }
+
         canvas {
             border: 1px solid black;
             margin: 20px;
-            /* Pleasant border around the canvas */
             width: calc(100vmin - 40px);
-            /* Smaller of viewport width or height minus margins */
             height: calc(100vmin - 40px);
-            /* Square canvas */
             max-width: 100%;
-            /* Prevent overflow */
             max-height: 100%;
             box-sizing: border-box;
         }
@@ -22,6 +23,7 @@
         #instructions {
             font-family: Arial, sans-serif;
             margin: 10px 20px;
+            display: none;
         }
     </style>
 </head>
