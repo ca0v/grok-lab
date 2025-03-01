@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Tank Memory Maze</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+
+        #instructions {
+            font-family: Arial, sans-serif;
+            margin: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
+        ? to peek numbers. Hit targets in order! Game over at 10 misses.</div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 40;
+        let mazeSize = 11;
+        let level = 1;
+        let maxTargets = 5;
+
+        let maze = [];
+        let tank = {};
+        let targets = [];
+        let bullets = [];
+        let currentTarget = 1;
+        let showNumbers = true;
+        let numberTimer = 5000;
+        let peekTimer = 0;
+        let keysPressed = {};
+        let score = { hits: 0, misses: 0 };
+        let marker = null;
+        let gameOver = false;
+        let levelCleared = false;
+        let targetColors = []; // Array to store random colors per target
+
+        function updateCanvasSize() {
+            canvas.width = mazeSize * gridSize;
+            canvas.height = mazeSize * gridSize;
+        }
+
+        function generateMaze(size) {
+            const maze = Array(size).fill().map(() => Array(size).fill(1));
+            const directions = [[0, 2], [2, 0], [0, -2], [-2, 0]];
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            }
+            function carve(x, y) {
+                maze[y][x] = 0;
+                const dirs = directions.slice();
+                shuffle(dirs);
+                for (let [dy, dx] of dirs) {
+                    const newY = y + dy;
+                    const newX = x + dx;
+                    if (newY > 0 && newY < size - 1 && newX > 0 && newX < size - 1 && maze[newY][newX] === 1) {
+                        maze[y + dy / 2][x + dx / 2] = 0;
+                        carve(newX, newY);
+                    }
+                }
+            }
+            carve(1, 1);
+            return maze;
+        }
+
+        function getRandomOpenPosition() {
+            let x, y;
+            do {
+                x = Math.floor(Math.random() * mazeSize);
+                y = Math.floor(Math.random() * mazeSize);
+            } while (maze[y][x] !== 0);
+            return { x, y };
+        }
+
+        function getRandomColor() {
+            const r = Math.floor(Math.random() * 256);
+            const g = Math.floor(Math.random() * 256);
+            const b = Math.floor(Math.random() * 256);
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function assignTargetColors() {
+            targetColors = [];
+            for (let i = 1; i <= maxTargets; i++) {
+                targetColors[i - 1] = getRandomColor(); // Assign a unique random color for each target number
+            }
+        }
+
+        function resetLevel() {
+            if (gameOver) return;
+            mazeSize = 11 + 2 * (level % 3 === 0);
+            updateCanvasSize();
+
+            maxTargets = 5 + Math.floor((level - 1) / 3);
+            maze = generateMaze(mazeSize);
+            tank = getRandomOpenPosition();
+            tank.dir = 'right';
+            tank.currentAngle = 0;
+            tank.targetAngle = 0;
+            tank.rotationStart = null;
+
+            targets = [];
+            assignTargetColors(); // Randomize colors for this level
+            for (let i = 1; i <= maxTargets; i++) {
+                let pos;
+                do {
+                    pos = getRandomOpenPosition();
+                } while (targets.some(t => t.x === pos.x && t.y === pos.y) || (pos.x === tank.x && pos.y === tank.y));
+                targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: targetColors[i - 1] });
+            }
+
+            bullets = [];
+            currentTarget = 1;
+            showNumbers = true;
+            numberTimer = 5000;
+            marker = null;
+            score.misses = 0;
+            level++;
+            levelCleared = false;
+        }
+
+        resetLevel();
+
+        function isIntersection(x, y, fromDir) {
+            const directions = [
+                { dx: 0, dy: -1, dir: 'up' },
+                { dx: 0, dy: 1, dir: 'down' },
+                { dx: -1, dy: 0, dir: 'left' },
+                { dx: 1, dy: 0, dir: 'right' }
+            ];
+            let openPaths = 0;
+            directions.forEach(d => {
+                const newX = x + d.dx;
+                const newY = y + d.dy;
+                if (newX >= 0 && newX < mazeSize && newY >= 0 && newY < mazeSize && maze[newY][newX] === 0 && d.dir !== fromDir) {
+                    openPaths++;
+                }
+            });
+            return openPaths > 1;
+        }
+
+        function moveFar(x, y, dir) {
+            let newX = x, newY = y;
+            let fromDir;
+            switch (dir) {
+                case 'up': fromDir = 'down'; break;
+                case 'down': fromDir = 'up'; break;
+                case 'left': fromDir = 'right'; break;
+                case 'right': fromDir = 'left'; break;
+            }
+            while (true) {
+                const nextX = newX + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
+                const nextY = newY + (dir === 'down' ? 1 : dir === 'up' ? -1 : 0);
+                if (nextX < 0 || nextX >= mazeSize || nextY < 0 || nextY >= mazeSize || maze[nextY][nextX] === 1) {
+                    break;
+                }
+                newX = nextX;
+                newY = nextY;
+                if (isIntersection(newX, newY, fromDir)) {
+                    break;
+                }
+            }
+            return { x: newX, y: newY };
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let y = 0; y < mazeSize; y++) {
+                for (let x = 0; x < mazeSize; x++) {
+                    if (maze[y][x] === 1) {
+                        ctx.fillStyle = 'gray';
+                        ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
+                    }
+                }
+            }
+
+            targets.forEach(t => {
+                if (!t.hit) {
+                    ctx.fillStyle = t.color; // Use the target's random color
+                    ctx.fillRect(t.x * gridSize, t.y * gridSize, gridSize, gridSize);
+                    if (showNumbers || t.flashTimer > 0 || peekTimer > 0) {
+                        ctx.fillStyle = 'white'; // White text for contrast
+                        ctx.font = '20px Arial';
+                        ctx.fillText(t.num, t.x * gridSize + 12, t.y * gridSize + 28);
+                    }
+                }
+            });
+
+            if (marker) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('x', marker.x * gridSize + gridSize / 2, marker.y * gridSize + gridSize / 2);
+            }
+
+            ctx.save();
+            ctx.translate(tank.x * gridSize + gridSize / 2, tank.y * gridSize + gridSize / 2);
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(0, 0, gridSize / 2 - 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.rotate(tank.currentAngle);
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('➔', 0, 0);
+            ctx.restore();
+
+            ctx.fillStyle = 'red';
+            bullets.forEach(b => {
+                ctx.fillRect(b.x * gridSize, b.y * gridSize, 5, 5);
+            });
+
+            ctx.fillStyle = 'black';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Hits: ${score.hits}  Misses: ${score.misses}  Level: ${level}`, 10, 20);
+
+            if (levelCleared) {
+                ctx.fillStyle = 'black';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Level Cleared! Starting New Level...', canvas.width / 2, canvas.height / 2);
+            }
+
+            if (gameOver) {
+                ctx.fillStyle = 'black';
+                ctx.font = '30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Game Over! Final Score: ' + score.hits, canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function checkBulletCollision(bullet) {
+            let hitTarget = false;
+            targets.forEach(t => {
+                if (!t.hit && bullet.x === t.x && bullet.y === t.y) {
+                    hitTarget = true;
+                    if (t.num === currentTarget) {
+                        t.hit = true;
+                        score.hits++;
+                        currentTarget++;
+                    } else {
+                        t.flashTimer = 1000;
+                        score.misses++;
+                    }
+                }
+            });
+            if (!hitTarget && (bullet.x < 0 || bullet.x >= mazeSize || bullet.y < 0 || bullet.y >= mazeSize || maze[bullet.y][bullet.x] === 1)) {
+                score.misses++;
+            }
+            return hitTarget;
+        }
+
+        document.addEventListener('keydown', e => {
+            if (gameOver || levelCleared || (showNumbers && numberTimer > 0)) return;
+            if (keysPressed[e.key]) return;
+            keysPressed[e.key] = true;
+
+            let newX = tank.x, newY = tank.y;
+            let newDir = tank.dir;
+
+            switch (e.key) {
+                case 'w':
+                case 'W':
+                    newDir = 'up';
+                    const upPos = moveFar(tank.x, tank.y, newDir);
+                    newX = upPos.x;
+                    newY = upPos.y;
+                    break;
+                case 's':
+                case 'S':
+                    newDir = 'down';
+                    const downPos = moveFar(tank.x, tank.y, newDir);
+                    newX = downPos.x;
+                    newY = downPos.y;
+                    break;
+                case 'a':
+                case 'A':
+                    newDir = 'left';
+                    const leftPos = moveFar(tank.x, tank.y, newDir);
+                    newX = leftPos.x;
+                    newY = leftPos.y;
+                    break;
+                case 'd':
+                case 'D':
+                    newDir = 'right';
+                    const rightPos = moveFar(tank.x, tank.y, newDir);
+                    newX = rightPos.x;
+                    newY = rightPos.y;
+                    break;
+                case 'ArrowUp':
+                    newDir = 'up';
+                    newY--;
+                    break;
+                case 'ArrowDown':
+                    newDir = 'down';
+                    newY++;
+                    break;
+                case 'ArrowLeft':
+                    newDir = 'left';
+                    newX--;
+                    break;
+                case 'ArrowRight':
+                    newDir = 'right';
+                    newX++;
+                    break;
+                case ' ':
+                    let bullet = { x: tank.x, y: tank.y, dir: tank.dir };
+                    if (checkBulletCollision(bullet)) bullets = bullets.filter(b => b !== bullet);
+                    else bullets.push(bullet);
+                    break;
+                case 'x':
+                case 'X':
+                    if (!marker) {
+                        marker = { x: tank.x, y: tank.y };
+                    } else {
+                        tank.x = marker.x;
+                        tank.y = marker.y;
+                        marker = null;
+                    }
+                    return;
+                case '?':
+                    peekTimer = 1000;
+                    break;
+            }
+
+            if (maze[newY] && maze[newY][newX] === 0) {
+                tank.x = newX;
+                tank.y = newY;
+                if (newDir !== tank.dir) {
+                    tank.dir = newDir;
+                    tank.rotationStart = performance.now();
+                    switch (newDir) {
+                        case 'up': tank.targetAngle = -Math.PI / 2; break;
+                        case 'down': tank.targetAngle = Math.PI / 2; break;
+                        case 'left': tank.targetAngle = Math.PI; break;
+                        case 'right': tank.targetAngle = 0; break;
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('keyup', e => {
+            keysPressed[e.key] = false;
+        });
+
+        function update() {
+            if (gameOver || levelCleared) return;
+
+            if (showNumbers) {
+                numberTimer -= 16;
+                if (numberTimer <= 0) showNumbers = false;
+            }
+
+            if (peekTimer > 0) {
+                peekTimer -= 16;
+                if (peekTimer < 0) peekTimer = 0;
+            }
+
+            if (tank.rotationStart !== null) {
+                const elapsed = performance.now() - tank.rotationStart;
+                const duration = 50;
+                if (elapsed < duration) {
+                    const progress = elapsed / duration;
+                    tank.currentAngle += (tank.targetAngle - tank.currentAngle) * progress;
+                } else {
+                    tank.currentAngle = tank.targetAngle;
+                    tank.rotationStart = null;
+                }
+            }
+
+            targets.forEach(t => {
+                if (t.flashTimer > 0) {
+                    t.flashTimer -= 16;
+                    if (t.flashTimer < 0) t.flashTimer = 0;
+                }
+            });
+
+            bullets = bullets.filter(b => {
+                switch (b.dir) {
+                    case 'up': b.y--; break;
+                    case 'down': b.y++; break;
+                    case 'left': b.x--; break;
+                    case 'right': b.x++; break;
+                }
+                if (b.x < 0 || b.x >= mazeSize || b.y < 0 || b.y >= mazeSize || maze[b.y][b.x] === 1) {
+                    score.misses++;
+                    return false;
+                }
+                if (checkBulletCollision(b)) return false;
+                return true;
+            });
+
+            if (score.misses >= 10) {
+                gameOver = true;
+            } else if (targets.every(t => t.hit)) {
+                levelCleared = true;
+                setTimeout(() => {
+                    resetLevel();
+                }, 2000);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        setTimeout(() => gameLoop(), 0);
+    </script>
+</body>
+
+</html>
