@@ -64,11 +64,11 @@
         let targetColors = []; // Array to store random colors per target
 
         function updateCanvasSize() {
-            const maxCanvasSize = Math.min(window.innerWidth - CANVAS_MARGIN_HORIZONTAL, window.innerHeight - CANVAS_MARGIN_VERTICAL);
-            canvas.width = maxCanvasSize;
-            canvas.height = maxCanvasSize;
-            bannerHeight = maxCanvasSize * BANNER_HEIGHT_PERCENT;
-            gridSize = Math.floor(maxCanvasSize / (mazeSize + BANNER_HEIGHT_PERCENT));
+            const maxSize = Math.min(window.innerWidth - CANVAS_MARGIN_HORIZONTAL, window.innerHeight - CANVAS_MARGIN_VERTICAL);
+            canvas.width = maxSize;
+            canvas.height = maxSize;
+            bannerHeight = maxSize * BANNER_HEIGHT_PERCENT;
+            gridSize = Math.floor((maxSize - bannerHeight) / mazeSize); // Fit maze below banner
         }
 
         function generateMaze(size) {
@@ -94,6 +94,10 @@
                 }
             }
             carve(1, 1);
+            // Force bottom row to be solid walls
+            for (let x = 0; x < size; x++) {
+                maze[size - 1][x] = 1;
+            }
             return maze;
         }
 
@@ -101,7 +105,7 @@
             let x, y;
             do {
                 x = Math.floor(Math.random() * mazeSize);
-                y = Math.floor(Math.random() * mazeSize);
+                y = Math.floor(Math.random() * (mazeSize - 1)); // Exclude bottom row
             } while (maze[y][x] !== 0);
             return { x, y };
         }
@@ -131,14 +135,13 @@
         function resetLevel() {
             if (gameOver) return;
 
-            // Cycle maze size: 9x9, 11x11, 13x13 every 3 levels
             const levelCycle = level % 3;
             mazeSize = 9 + levelCycle * 2; // 9, 11, 13
             updateCanvasSize();
 
-            maxTargets = 3 + Math.floor(level / 3); // Add 1 target every 3 levels
+            maxTargets = 3 + Math.floor(level / 3);
             maze = generateMaze(mazeSize);
-            tank = getRandomOpenPosition();
+            tank = getRandomOpenPosition(); // Uses updated function
             tank.dir = 'right';
             tank.currentAngle = 0;
             tank.targetAngle = 0;
@@ -149,7 +152,7 @@
             for (let i = 1; i <= maxTargets; i++) {
                 let pos;
                 do {
-                    pos = getRandomOpenPosition();
+                    pos = getRandomOpenPosition(); // Uses updated function
                 } while (targets.some(t => t.x === pos.x && t.y === pos.y) || (pos.x === tank.x && pos.y === tank.y));
                 targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: targetColors[i - 1] });
             }
@@ -161,7 +164,7 @@
             marker = null;
             score.misses = 0;
             levelCleared = false;
-            level++; // Increment level at the end
+            level++;
         }
 
         resetLevel();
@@ -371,15 +374,18 @@
             if (keysPressed[e.key]) return;
             keysPressed[e.key] = true;
 
-            // End countdown early on navigation key press
+            if (['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+                e.preventDefault();
+            }
+
             if (showNumbers && numberTimer > 0 &&
                 ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
                 showNumbers = false;
                 numberTimer = 0;
-                return; // Skip further processing during countdown
+                return;
             }
 
-            if (showNumbers && numberTimer > 0) return; // Block other actions during countdown
+            if (showNumbers && numberTimer > 0) return;
 
             let newX = tank.x, newY = tank.y;
             let newDir = tank.dir;
@@ -397,7 +403,7 @@
                     newDir = 'down';
                     const downPos = moveFar(tank.x, tank.y, newDir);
                     newX = downPos.x;
-                    newY = downPos.y;
+                    newY = downPos.y < mazeSize - 1 ? downPos.y : tank.y; // Block bottom row
                     break;
                 case 'a':
                 case 'A':
@@ -419,7 +425,7 @@
                     break;
                 case 'ArrowDown':
                     newDir = 'down';
-                    newY++;
+                    newY = newY < mazeSize - 1 ? newY + 1 : newY; // Block bottom row
                     break;
                 case 'ArrowLeft':
                     newDir = 'left';
@@ -437,7 +443,7 @@
                 case 'x':
                 case 'X':
                     if (!marker) {
-                        marker = { x: tank.x, y: tank.y };
+                        marker = getRandomOpenPosition(); // Uses updated function
                     } else {
                         tank.x = marker.x;
                         tank.y = marker.y;
