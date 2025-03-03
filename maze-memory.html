@@ -7,23 +7,26 @@
     <style>
         body {
             overflow: hidden;
-            /* Prevent scrolling */
             margin: 0;
-            /* Remove default margin */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            /* Full viewport height */
         }
 
         canvas {
             border: 1px solid black;
-            margin: 20px auto;
-            /* Top/bottom 20px, left/right auto for centering */
-            width: calc(100vmin - 40px);
-            /* Square maze width */
-            height: calc((100vmin - 40px) * (1 + 0.11));
-            /* Add 11% for scoreboard */
-            max-width: 100%;
+            margin: 10px auto;
+            /* Reduced margin for mobile */
+            width: calc(90vw - 20px);
+            /* 90% of viewport width */
+            height: calc((90vw - 20px) * (1 + 0.11));
+            /* Adjusted for scoreboard */
+            max-width: 90vh;
+            /* Cap width based on height */
             box-sizing: border-box;
             display: block;
-            /* Ensure block-level for auto margins */
         }
 
         #instructions {
@@ -37,6 +40,29 @@
             margin: 10px 20px;
             animation: fadeOut 30s ease forwards;
             color: red;
+        }
+
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            max-width: 90vw;
+            /* Match canvas width */
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #ccc;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: none;
+            /* Prevent default touch behavior */
         }
 
         @keyframes fadeOut {
@@ -60,6 +86,15 @@
     <canvas id="gameCanvas"></canvas>
     <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
         ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
+    <div id="controls">
+        <button class="control-btn" id="up">↑</button>
+        <button class="control-btn" id="left">←</button>
+        <button class="control-btn" id="down">↓</button>
+        <button class="control-btn" id="right">→</button>
+        <button class="control-btn" id="shoot">⍽</button>
+        <button class="control-btn" id="marker">M</button>
+        <button class="control-btn" id="peek">P</button>
+    </div>
     <script>
         class MazeMemoryGame {
             constructor() {
@@ -100,6 +135,7 @@
 
                 this.resetLevel();
                 this.setupEventListeners();
+                this.setupControlListeners();
                 this.gameLoop();
             }
 
@@ -387,6 +423,41 @@
 
                 document.addEventListener('keyup', e => {
                     this.keysPressed[e.key] = false;
+                });
+            }
+
+            handleStart(key, e) {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key });
+                document.dispatchEvent(event);
+            }
+
+            handleEnd(key, e) {
+                e.preventDefault();
+                const keyupEvent = new KeyboardEvent('keyup', { key });
+                document.dispatchEvent(keyupEvent);
+            }
+
+            setupControlListeners() {
+                const keyMap = {
+                    'up': 'w',
+                    'down': 's',
+                    'left': 'a',
+                    'right': 'd',
+                    'shoot': ' ',
+                    'marker': 'x',
+                    'peek': '?'
+                };
+
+                Object.keys(keyMap).forEach(id => {
+                    const button = document.getElementById(id);
+                    const key = keyMap[id];
+
+                    // Attach event listeners using bind
+                    button.addEventListener('touchstart', this.handleStart.bind(this, key));
+                    button.addEventListener('mousedown', this.handleStart.bind(this, key));
+                    button.addEventListener('touchend', this.handleEnd.bind(this, key));
+                    button.addEventListener('mouseup', this.handleEnd.bind(this, key));
                 });
             }
 
