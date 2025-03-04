@@ -209,11 +209,13 @@
                     desiredX: 0, desiredY: 0, desiredDir: 'right', ignoreCollisions: false // Add this
                 };
                 this.targets = [];
+
                 this.bullets = [];
+                this.powerUpTimer = 0; // Reset power-up timer
+
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = 5000;
-                this.peekTimer = 0;
                 this.showNextTargetTimer = 0;
                 this.keysPressed = {};
                 this.score = { hits: 0, lives: this.MAX_MISSES, total: 0 }; // Add total score
@@ -227,14 +229,20 @@
                 this.showAllTimer = 0; // For "hit" event
                 this.showNextTimer = 0; // For "peek" event
 
+                this.POWER_UP_DURATION = 10000; // 10 seconds
+                this.POWER_UP_REVEAL_DURATION = 1000; // 1 second
+                this.powerUp = null; // Position of power-up
+                this.powerUpTimer = 0; // Time remaining with power-up
+
                 this.eventHandlers = {
                     hit: () => {
                         this.score.hits++;
                         this.currentTarget++;
-                        this.showAllTimer = 1000;
-                    }, // Show all targets for 1s, increment hits and target
+                        this.showAllTimer = this.powerUpTimer > 0 ? this.POWER_UP_REVEAL_DURATION : 0;
+                    }, // Show all targets conditionally
                     miss: (target) => {
                         if (target) target.flashTimer = 1000;
+                        this.showAllTimer = this.powerUpTimer > 0 ? this.POWER_UP_REVEAL_DURATION : 0;
                         this.score.lives--;
                     },
                     peek: () => { this.showNextTimer = 1000; this.score.misses++; }, // Show next target, +1 miss
@@ -521,6 +529,7 @@
                 this.maxTargets = 3 + Math.floor(this.level / 3);
                 this.maze = this.generateMaze();
                 const startPos = this.getRandomOpenPosition();
+
                 this.tank = {
                     x: startPos.x,
                     y: startPos.y,
@@ -542,6 +551,7 @@
                     this.targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
                 }
                 this.bullets = [];
+                this.powerUp = this.getRandomOpenPosition(); // Spawn power-up
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = 5000;
@@ -605,7 +615,7 @@
                 for (const t of this.targets) {
                     if (!t.hit && bulletGridX === t.x && bulletGridY === t.y && t.num === this.currentTarget) {
                         t.hit = true;
-                        this.eventHandlers.hit(); // Raise "hit" event, increments hits and currentTarget
+                        this.eventHandlers.hit(); // Raise "hit" event
                         return true; // Bullet stops after hitting correct target
                     }
                 }
@@ -642,6 +652,20 @@
                     return;
                 }
 
+                // Check for power-up collection
+                const tankGridX = Math.floor(this.tank.x);
+                const tankGridY = Math.floor(this.tank.y);
+                if (this.powerUp && tankGridX === this.powerUp.x && tankGridY === this.powerUp.y) {
+                    this.powerUpTimer = this.POWER_UP_DURATION; // Activate power-up
+                    this.powerUp = null; // Remove power-up
+                }
+
+                // Update power-up timers
+                if (this.powerUpTimer > 0) {
+                    this.powerUpTimer -= 16;
+                    if (this.powerUpTimer < 0) this.powerUpTimer = 0;
+                }
+
                 if (this.showAllTimer > 0) {
                     this.showAllTimer -= 16;
                     if (this.showAllTimer < 0) this.showAllTimer = 0;
@@ -650,11 +674,6 @@
                 if (this.showNextTimer > 0) {
                     this.showNextTimer -= 16;
                     if (this.showNextTimer < 0) this.showNextTimer = 0;
-                }
-
-                if (this.peekTimer > 0) {
-                    this.peekTimer -= 16;
-                    if (this.peekTimer < 0) this.peekTimer = 0;
                 }
 
                 // Smooth tank movement with conditional collision detection
@@ -744,6 +763,7 @@
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 this.drawMaze(); // No need for isDarkMode parameter
                 this.drawTargets();
+                this.drawPowerUp();
                 this.drawMarker(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333' ? '#fff' : '#000');
                 this.drawTank();
                 this.drawBullets();
@@ -774,7 +794,7 @@
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
 
-                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0 || this.showAllTimer > 0 || (t.num === this.currentTarget && this.showNextTimer > 0)) {
+                        if (this.showNumbers || t.flashTimer > 0 || this.showAllTimer > 0 || (t.num === this.currentTarget && this.showNextTimer > 0)) {
                             this.ctx.fillStyle = 'white';
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
@@ -818,6 +838,20 @@
                 });
             }
 
+            drawPowerUp() {
+                if (this.powerUp) {
+                    this.ctx.fillStyle = 'yellow';
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                        this.powerUp.x * this.gridSize + this.gridSize / 2,
+                        this.powerUp.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
+                        this.gridSize / 4,
+                        0,
+                        Math.PI * 2
+                    );
+                    this.ctx.fill();
+                }
+            }
             drawScoreboard(isDarkMode) {
                 const fontSize = Math.floor(this.bannerHeight / 2.5);
                 this.ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
