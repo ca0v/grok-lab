@@ -10,13 +10,15 @@
     <style>
         :root {
             --grid-bg: #fff;
-            /* Default light mode background */
+            --textColor: #000;
+            /* Default black text */
         }
 
         @media (prefers-color-scheme: dark) {
             :root {
                 --grid-bg: #333;
-                /* Dark mode background */
+                --textColor: #fff;
+                /* White text in dark mode */
             }
         }
 
@@ -220,6 +222,7 @@
                 this.gameOver = false;
                 this.levelCleared = false;
                 this.targetColors = [];
+                this.colorIndex = 0; // Track current position in color cycle
                 this.lastButtonDirection = null;
                 this.showAllTimer = 0; // For "hit" event
                 this.showNextTimer = 0; // For "peek" event
@@ -472,14 +475,34 @@
             }
 
             getRandomColor() {
-                const tankColor = 'rgb(0, 128, 0)';
-                let color;
-                do {
-                    const r = Math.floor(Math.random() * 256);
-                    const g = Math.floor(Math.random() * 256);
-                    const b = Math.floor(Math.random() * 256);
-                    color = `rgb(${r}, ${g}, ${b})`;
-                } while (color === tankColor);
+                const niceColors = [
+                    '#8B4513', // Saddle Brown
+                    '#483D8B', // Dark Slate Blue
+                    '#A52A2A', // Brown
+                    '#4B0082', // Indigo
+                    '#8A2BE2', // Blue Violet
+                    '#9932CC', // Dark Orchid
+                    '#800080', // Purple
+                    '#B22222', // Firebrick
+                    '#4682B4', // Steel Blue
+                    '#191970', // Midnight Blue
+                    '#9B30FF', // Purple (brighter)
+                    '#CD5C5C', // Indian Red
+                    '#9400D3', // Dark Violet
+                    '#FF4500', // Orange Red
+                    '#8B0000', // Dark Red
+                    '#4169E1', // Royal Blue
+                    '#C71585', // Medium Violet Red
+                    '#00008B', // Dark Blue
+                    '#DC143C', // Crimson
+                    '#6A5ACD', // Slate Blue
+                    '#FF6347', // Tomato
+                    '#7B68EE', // Medium Slate Blue
+                    '#DAA520', // Goldenrod
+                    '#BA55D3'  // Medium Orchid
+                ];
+                const color = niceColors[this.colorIndex % niceColors.length];
+                this.colorIndex++;
                 return color;
             }
 
@@ -829,7 +852,7 @@
 
             drawMessages() {
                 if (this.levelCleared) {
-                    this.ctx.fillStyle = 'black';
+                    this.ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--textColor').trim();
                     this.ctx.font = `${Math.floor(this.canvas.height / 20)}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
@@ -837,7 +860,7 @@
                 }
 
                 if (this.gameOver) {
-                    this.ctx.fillStyle = 'black';
+                    this.ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--textColor').trim();
                     this.ctx.font = `${Math.floor(this.canvas.height / 20)}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
