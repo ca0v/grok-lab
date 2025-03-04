@@ -212,6 +212,7 @@
                 this.showNumbers = true;
                 this.numberTimer = 5000;
                 this.peekTimer = 0;
+                this.showNextTargetTimer = 0;
                 this.keysPressed = {};
                 this.score = { hits: 0, misses: 0 };
                 this.marker = null;
@@ -219,6 +220,21 @@
                 this.levelCleared = false;
                 this.targetColors = [];
                 this.lastButtonDirection = null;
+                this.showAllTimer = 0; // For "hit" event
+                this.showNextTimer = 0; // For "peek" event
+
+                this.eventHandlers = {
+                    hit: () => {
+                        this.score.hits++;
+                        this.currentTarget++;
+                        this.showAllTimer = 1000;
+                    }, // Show all targets for 1s, increment hits and target
+                    miss: (target) => {
+                        if (target) target.flashTimer = 1000;
+                        this.score.misses++;
+                    },
+                    peek: () => { this.showNextTimer = 1000; this.score.misses++; }, // Show next target, +1 miss
+                };
 
                 this.resetLevel();
                 this.setupEventListeners();
@@ -393,7 +409,7 @@
                                 return;
                             case '?':
                             case 'P':
-                                this.peekTimer = 1000;
+                                this.eventHandlers.peek();
                                 return;
                         }
                     }
@@ -557,32 +573,33 @@
                 let hitTarget = false;
                 const bulletGridX = Math.floor(bullet.x);
                 const bulletGridY = Math.floor(bullet.y);
+
+                // Check for correct target hit first
+                for (const t of this.targets) {
+                    if (!t.hit && bulletGridX === t.x && bulletGridY === t.y && t.num === this.currentTarget) {
+                        t.hit = true;
+                        this.eventHandlers.hit(); // Raise "hit" event, increments hits and currentTarget
+                        return true; // Bullet stops after hitting correct target
+                    }
+                }
+
+                // Check for incorrect target hit or wall
                 this.targets.forEach(t => {
                     if (!t.hit && bulletGridX === t.x && bulletGridY === t.y) {
                         hitTarget = true;
-                        if (t.num === this.currentTarget) {
-                            t.hit = true;
-                            this.score.hits++;
-                            this.currentTarget++;
-                            this.showNextTargetTimer = 1000;
-                        } else {
-                            t.flashTimer = 1000;
-                            this.score.misses++;
-                        }
+                        this.eventHandlers.miss(t); // Raise "miss" event with target, flashes it
                     }
                 });
 
                 if (!hitTarget) {
                     if (bulletGridX >= 0 && bulletGridX < this.mazeSize && bulletGridY >= 0 && bulletGridY < this.mazeSize) {
                         if (this.maze[bulletGridY][bulletGridX] === 1) {
-                            console.log(`Bullet hit wall at (${bulletGridX}, ${bulletGridY})`);
-                            this.maze[bulletGridY][bulletGridX] = 0; // Destroy wall where bullet hits
-                            this.score.misses++;
+                            this.maze[bulletGridY][bulletGridX] = 0; // Destroy wall
+                            this.eventHandlers.miss(); // Raise "miss" event, no target to flash
                             hitTarget = true;
                         }
                     } else {
-                        console.log(`Bullet out of bounds at (${bulletGridX}, ${bulletGridY})`);
-                        this.score.misses++; // Bullet out of bounds
+                        this.eventHandlers.miss(); // Out of bounds, no target
                         hitTarget = true;
                     }
                 }
@@ -598,9 +615,14 @@
                     return;
                 }
 
-                if (this.showNextTargetTimer > 0) {
-                    this.showNextTargetTimer -= 16;
-                    if (this.showNextTargetTimer < 0) this.showNextTargetTimer = 0;
+                if (this.showAllTimer > 0) {
+                    this.showAllTimer -= 16;
+                    if (this.showAllTimer < 0) this.showAllTimer = 0;
+                }
+
+                if (this.showNextTimer > 0) {
+                    this.showNextTimer -= 16;
+                    if (this.showNextTimer < 0) this.showNextTimer = 0;
                 }
 
                 if (this.peekTimer > 0) {
@@ -717,7 +739,7 @@
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
 
-                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0 || (t.num === this.currentTarget && this.showNextTargetTimer > 0)) {
+                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0 || this.showAllTimer > 0 || (t.num === this.currentTarget && this.showNextTimer > 0)) {
                             this.ctx.fillStyle = 'white';
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
