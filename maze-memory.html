@@ -214,7 +214,7 @@
                 this.peekTimer = 0;
                 this.showNextTargetTimer = 0;
                 this.keysPressed = {};
-                this.score = { hits: 0, lives: this.MAX_MISSES }; // Start with 5 lives
+                this.score = { hits: 0, lives: this.MAX_MISSES, total: 0 }; // Add total score
                 this.gameOverDelay = 0; // For 3-second restart delay
                 this.marker = null;
                 this.gameOver = false;
@@ -525,6 +525,9 @@
                 this.marker = null;
                 this.score.lives = this.MAX_MISSES; // Reset lives to 5
                 this.levelCleared = false;
+                if (this.level > 0) { // Only compute score after first level
+                    this.score.total += this.score.hits * this.score.lives;
+                }
                 this.level++;
             }
 
@@ -819,6 +822,8 @@
                 if (this.showNumbers && this.numberTimer > 0) {
                     const countdown = Math.ceil(this.numberTimer / 1000);
                     this.ctx.fillText(countdown, this.canvas.width / 2, 10 + fontSize);
+                } else {
+                    this.ctx.fillText(`Score: ${this.score.total}`, this.canvas.width / 2, 10 + fontSize);
                 }
             }
 
