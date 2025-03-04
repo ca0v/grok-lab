@@ -192,6 +192,8 @@
                 this.MAX_MISSES = 5;
                 this.BULLET_SPEED = 0.2;
                 this.TANK_SPEED = 0.25;
+                this.MIN_GRID_SIZE = 7;
+                this.LEVELS_PER_CYCLE = 3;
 
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
@@ -200,7 +202,7 @@
                 this.topBorderSize = 0;
                 this.updateCanvasSize();
 
-                this.mazeSize = 9;
+                this.mazeSize = this.MIN_GRID_SIZE;
                 this.level = 0;
                 this.maxTargets = 3;
                 this.maze = [];
@@ -287,7 +289,7 @@
                             this.lastButtonDirection = direction;
                         } else {
                             // Second press in same direction: Move far
-                            const pos = this.moveFar(this.tank.x, this.tank.y, direction);
+                            const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), direction);
                             this.tank.desiredX = pos.x;
                             this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
                             this.tank.desiredDir = direction;
@@ -523,8 +525,9 @@
 
             resetLevel() {
                 if (this.gameOver) return;
-                const levelCycle = this.level % 3;
-                this.mazeSize = 9 + levelCycle * 2; // 9, 11, 13
+                const levelCycle = this.level % this.LEVELS_PER_CYCLE;
+                const difficulty = Math.floor(this.level / this.LEVELS_PER_CYCLE);
+                this.mazeSize = this.MIN_GRID_SIZE + (difficulty + levelCycle) * 2;
                 this.updateCanvasSize();
                 this.maxTargets = 3 + Math.floor(this.level / 3);
                 this.maze = this.generateMaze();
