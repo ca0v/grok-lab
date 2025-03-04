@@ -5,25 +5,33 @@
     <meta charset="UTF-8">
     <title>Tank Memory Maze</title>
     <style>
+        :root {
+            --grid-bg: #fff;
+            /* Default light mode background */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --grid-bg: #333;
+                /* Dark mode background */
+            }
+        }
+
         body {
             overflow: hidden;
-            /* Prevent scrolling */
             margin: 0;
-            /* Remove default margin */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--grid-bg);
         }
 
         canvas {
             border: 1px solid black;
-            margin: 20px auto;
-            /* Top/bottom 20px, left/right auto for centering */
-            width: calc(100vmin - 40px);
-            /* Square maze width */
-            height: calc((100vmin - 40px) * (1 + 0.11));
-            /* Add 11% for scoreboard */
-            max-width: 100%;
+            margin: 10px;
             box-sizing: border-box;
             display: block;
-            /* Ensure block-level for auto margins */
         }
 
         #instructions {
@@ -37,6 +45,87 @@
             margin: 10px 20px;
             animation: fadeOut 30s ease forwards;
             color: red;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 10px;
+            max-width: 90vw;
+        }
+
+        /* Landscape mode: Move controls to the right */
+        @media (orientation: landscape) {
+            body {
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+            }
+
+            canvas {
+                margin-right: 0;
+                /* Reduce right margin to fit controls */
+            }
+
+            #controls {
+                flex-direction: column;
+                /* Stack controls vertically on the right */
+                max-width: 20vw;
+                /* Limit width in landscape */
+            }
+        }
+
+        /* Portrait mode: Keep controls below (default) */
+        @media (orientation: portrait) {
+            body {
+                flex-direction: column;
+            }
+
+            #controls {
+                max-width: 90vw;
+                /* Full width below grid in portrait */
+            }
+        }
+
+        .dpad-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dpad-row {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .extra-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #ccc;
+            border: 2px solid #333;
+            border-radius: 5px;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        #shoot {
+            width: 70px;
+            height: 70px;
+            font-size: 24px;
+            background-color: #f00;
+            color: white;
         }
 
         @keyframes fadeOut {
@@ -60,6 +149,25 @@
     <canvas id="gameCanvas"></canvas>
     <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
         ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
+    <div id="controls">
+        <div class="dpad-container">
+            <div class="dpad-row">
+                <button class="control-btn" id="up">↑</button>
+            </div>
+            <div class="dpad-row">
+                <button class="control-btn" id="left">←</button>
+                <button class="control-btn" id="shoot">⍽</button>
+                <button class="control-btn" id="right">→</button>
+            </div>
+            <div class="dpad-row">
+                <button class="control-btn" id="down">↓</button>
+            </div>
+        </div>
+        <div class="extra-buttons">
+            <button class="control-btn" id="marker">M</button>
+            <button class="control-btn" id="peek">P</button>
+        </div>
+    </div>
     <script>
         class MazeMemoryGame {
             constructor() {
@@ -74,6 +182,7 @@
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
                 this.gridSize = this.GRID_SIZE;
+                this.controlsHeight = 200;
                 this.topBorderSize = 0;
                 this.updateCanvasSize();
 
@@ -97,14 +206,196 @@
                 this.gameOver = false;
                 this.levelCleared = false;
                 this.targetColors = [];
+                this.lastButtonDirection = null;
 
                 this.resetLevel();
                 this.setupEventListeners();
+                this.setupControlListeners();
                 this.gameLoop();
             }
 
+            setupControlListeners() {
+                const navigationButtons = ['up', 'down', 'left', 'right'];
+                const keyMap = {
+                    'up': 'w',
+                    'down': 's',
+                    'left': 'a',
+                    'right': 'd',
+                    'shoot': ' ',
+                    'marker': 'x',
+                    'peek': '?'
+                };
+
+                // Handle navigation buttons
+                navigationButtons.forEach(id => {
+                    const button = document.getElementById(id);
+                    const handleClick = (e) => {
+                        e.preventDefault();
+                        const direction = id; // id directly indicates direction: 'up', 'down', 'left', 'right'
+
+                        if (this.tank.dir !== direction) {
+                            // First press or different direction: Orient tank only
+                            this.tank.dir = direction;
+                            this.tank.desiredDir = direction;
+                            this.tank.rotationStart = performance.now();
+                            switch (direction) {
+                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
+                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
+                                case 'left': this.tank.targetAngle = Math.PI; break;
+                                case 'right': this.tank.targetAngle = 0; break;
+                            }
+                            this.lastButtonDirection = direction;
+                        } else {
+                            // Second press in same direction: Move far
+                            const pos = this.moveFar(this.tank.x, this.tank.y, direction);
+                            this.tank.desiredX = pos.x;
+                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                            this.tank.desiredDir = direction;
+                            this.tank.ignoreCollisions = false;
+                        }
+                    };
+
+                    // Register click handlers for both touch and mouse
+                    button.addEventListener('touchstart', handleClick);
+                    button.addEventListener('mousedown', handleClick);
+                    // Reset direction tracking on release
+                    button.addEventListener('touchend', (e) => e.preventDefault());
+                    button.addEventListener('mouseup', (e) => e.preventDefault());
+                });
+
+                // Handle non-navigation buttons
+                ['shoot', 'marker', 'peek'].forEach(id => {
+                    const button = document.getElementById(id);
+                    const key = keyMap[id];
+                    button.addEventListener('touchstart', this.handleStart.bind(this, key));
+                    button.addEventListener('mousedown', this.handleStart.bind(this, key));
+                    button.addEventListener('touchend', this.handleEnd.bind(this, key));
+                    button.addEventListener('mouseup', this.handleEnd.bind(this, key));
+                });
+            }
+
+            handleStart(key, e) {
+                e.preventDefault();
+                const event = new KeyboardEvent('keydown', { key });
+                document.dispatchEvent(event);
+            }
+
+            handleEnd(key, e) {
+                e.preventDefault();
+                const keyupEvent = new KeyboardEvent('keyup', { key });
+                document.dispatchEvent(keyupEvent);
+            }
+
+            setupEventListeners() {
+                const CONTROL_KEYS = ['W', 'S', 'A', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT', ' ', 'M', 'P', '?'];
+
+                document.addEventListener('keydown', e => {
+                    if (this.gameOver || this.levelCleared) return;
+                    if (this.keysPressed[e.key]) return;
+                    this.keysPressed[e.key] = true;
+
+                    e.preventDefault(); // Always call preventDefault for keydown
+
+                    const key = e.key.toUpperCase();
+
+                    const keyActions = {
+                        'W': { dir: 'up', moveFar: true, moveOne: false },
+                        'S': { dir: 'down', moveFar: true, moveOne: false },
+                        'A': { dir: 'left', moveFar: true, moveOne: false },
+                        'D': { dir: 'right', moveFar: true, moveOne: false },
+                        'ARROWUP': { dir: 'up', moveFar: false, moveOne: true },
+                        'ARROWDOWN': { dir: 'down', moveFar: false, moveOne: true },
+                        'ARROWLEFT': { dir: 'left', moveFar: false, moveOne: true },
+                        'ARROWRIGHT': { dir: 'right', moveFar: false, moveOne: true }
+                    };
+
+                    if (this.showNumbers && this.numberTimer > 0 && CONTROL_KEYS.includes(key) && key !== ' ') {
+                        this.showNumbers = false;
+                        this.numberTimer = 0;
+                        return;
+                    }
+
+                    let newX = this.tank.x;
+                    let newY = this.tank.y;
+                    let newDir = this.tank.dir;
+                    let isMoveFar = false;
+
+                    const handleDirectionKey = (direction, dx, dy, moveFar, moveOne) => {
+                        const newDir = direction;
+                        let newX = this.tank.x;
+                        let newY = this.tank.y;
+
+                        if (moveFar) {
+                            const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
+                            this.tank.desiredX = pos.x;
+                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                            this.tank.desiredDir = newDir;
+                            this.tank.ignoreCollisions = false;
+                        } else if (moveOne && this.tank.dir === newDir) {
+                            newX += dx;
+                            newY += dy;
+                            if (newY >= 0 && newY < this.mazeSize && newX >= 0 && newX < this.mazeSize && this.maze[newY][newX] === 0) {
+                                this.tank.desiredX = newX;
+                                this.tank.desiredY = newY;
+                                this.tank.ignoreCollisions = false;
+                            }
+                        }
+
+                        if (newDir !== this.tank.dir) {
+                            this.tank.dir = newDir;
+                            this.tank.desiredDir = newDir;
+                            this.tank.rotationStart = performance.now();
+                            switch (newDir) {
+                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
+                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
+                                case 'left': this.tank.targetAngle = Math.PI; break;
+                                case 'right': this.tank.targetAngle = 0; break;
+                            }
+                        }
+                    };
+
+                    const action = keyActions[key];
+                    if (action) {
+                        handleDirectionKey(action.dir,
+                            action.dir === 'right' ? 1 : action.dir === 'left' ? -1 : 0,
+                            action.dir === 'down' ? 1 : action.dir === 'up' ? -1 : 0,
+                            action.moveFar,
+                            action.moveOne);
+                    } else {
+                        switch (key) {
+                            case ' ':
+                                let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
+                                if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
+                                else this.bullets.push(bullet);
+                                return;
+                            case 'X':
+                            case 'M':
+                                if (!this.marker) {
+                                    this.marker = { x: this.tank.x, y: this.tank.y };
+                                } else {
+                                    this.tank.desiredX = this.marker.x;
+                                    this.tank.desiredY = this.marker.y;
+                                    this.tank.ignoreCollisions = true;
+                                    this.marker = null;
+                                }
+                                return;
+                            case '?':
+                            case 'P':
+                                this.peekTimer = 1000;
+                                return;
+                        }
+                    }
+                });
+
+                document.addEventListener('keyup', e => {
+                    this.keysPressed[e.key] = false;
+                });
+            }
+
             updateCanvasSize() {
-                const maxSize = Math.min(window.innerWidth - this.CANVAS_MARGIN_HORIZONTAL, window.innerHeight - this.CANVAS_MARGIN_VERTICAL);
+                const windowWidth = window.innerWidth - this.CANVAS_MARGIN_HORIZONTAL;
+                const windowHeight = window.innerHeight - this.CANVAS_MARGIN_VERTICAL - this.controlsHeight; // Account for controls
+                const maxSize = Math.min(windowWidth, windowHeight); // Limit by minimum of width and adjusted height
                 this.canvas.width = maxSize;
                 this.bannerHeight = maxSize * this.BANNER_HEIGHT_PERCENT;
                 this.canvas.height = maxSize + this.bannerHeight;
@@ -252,142 +543,38 @@
 
             checkBulletCollision(bullet) {
                 let hitTarget = false;
-                const gridX = Math.floor(bullet.x);
-                const gridY = Math.floor(bullet.y);
+                const bulletGridX = Math.floor(bullet.x);
+                const bulletGridY = Math.floor(bullet.y);
                 this.targets.forEach(t => {
-                    if (!t.hit && gridX === t.x && gridY === t.y) {
+                    if (!t.hit && bulletGridX === t.x && bulletGridY === t.y) {
                         hitTarget = true;
                         if (t.num === this.currentTarget) {
                             t.hit = true;
                             this.score.hits++;
                             this.currentTarget++;
+                            this.showNextTargetTimer = 1000;
                         } else {
                             t.flashTimer = 1000;
                             this.score.misses++;
                         }
                     }
                 });
-                if (!hitTarget && (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1)) {
-                    this.score.misses++;
+
+                if (!hitTarget) {
+                    if (bulletGridX >= 0 && bulletGridX < this.mazeSize && bulletGridY >= 0 && bulletGridY < this.mazeSize) {
+                        if (this.maze[bulletGridY][bulletGridX] === 1) {
+                            console.log(`Bullet hit wall at (${bulletGridX}, ${bulletGridY})`);
+                            this.maze[bulletGridY][bulletGridX] = 0; // Destroy wall where bullet hits
+                            this.score.misses++;
+                            hitTarget = true;
+                        }
+                    } else {
+                        console.log(`Bullet out of bounds at (${bulletGridX}, ${bulletGridY})`);
+                        this.score.misses++; // Bullet out of bounds
+                        hitTarget = true;
+                    }
                 }
                 return hitTarget;
-            }
-
-            setupEventListeners() {
-                document.addEventListener('keydown', e => {
-                    if (this.gameOver || this.levelCleared) return;
-                    if (this.keysPressed[e.key]) return;
-                    this.keysPressed[e.key] = true;
-
-                    if (['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
-                        e.preventDefault();
-                    }
-
-                    if (this.showNumbers && this.numberTimer > 0 &&
-                        ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-                        this.showNumbers = false;
-                        this.numberTimer = 0;
-                        return;
-                    }
-
-                    if (this.showNumbers && this.numberTimer > 0) return;
-
-                    let newX = this.tank.x, newY = this.tank.y;
-                    let newDir = this.tank.dir;
-                    let isMoveFar = false;
-
-                    switch (e.key) {
-                        case 'w': case 'W':
-                            newDir = 'up';
-                            isMoveFar = true;
-                            break;
-                        case 's': case 'S':
-                            newDir = 'down';
-                            isMoveFar = true;
-                            break;
-                        case 'a': case 'A':
-                            newDir = 'left';
-                            isMoveFar = true;
-                            break;
-                        case 'd': case 'D':
-                            newDir = 'right';
-                            isMoveFar = true;
-                            break;
-                        case 'ArrowUp':
-                            newDir = 'up';
-                            newY--;
-                            break;
-                        case 'ArrowDown':
-                            newDir = 'down';
-                            newY = newY < this.mazeSize - 1 ? newY + 1 : newY;
-                            break;
-                        case 'ArrowLeft':
-                            newDir = 'left';
-                            newX--;
-                            break;
-                        case 'ArrowRight':
-                            newDir = 'right';
-                            newX++;
-                            break;
-                        case ' ':
-                            let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
-                            if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
-                            else this.bullets.push(bullet);
-                            return;
-                        case 'x': case 'X':
-                            if (!this.marker) {
-                                this.marker = { x: this.tank.x, y: this.tank.y };
-                            } else {
-                                this.tank.desiredX = this.marker.x;
-                                this.tank.desiredY = this.marker.y;
-                                this.tank.ignoreCollisions = true; // Allow passing through walls
-                                this.marker = null;
-                            }
-                            return;
-                        case '?':
-                            this.peekTimer = 1000;
-                            return;
-                    }
-
-                    if (isMoveFar) {
-                        const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                        this.tank.desiredX = pos.x;
-                        this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                        this.tank.desiredDir = newDir;
-                        this.tank.ignoreCollisions = false; // Respect walls for moveFar
-                        if (newDir !== this.tank.dir) {
-                            this.tank.dir = newDir;
-                            this.tank.rotationStart = performance.now();
-                            switch (newDir) {
-                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                                case 'left': this.tank.targetAngle = Math.PI; break;
-                                case 'right': this.tank.targetAngle = 0; break;
-                            }
-                        }
-                    } else if (this.maze[newY] && this.maze[newY][newX] === 0) {
-                        this.tank.x = newX;
-                        this.tank.y = newY;
-                        this.tank.desiredX = newX;
-                        this.tank.desiredY = newY;
-                        this.tank.ignoreCollisions = false; // Respect walls for arrow keys
-                        if (newDir !== this.tank.dir) {
-                            this.tank.dir = newDir;
-                            this.tank.desiredDir = newDir;
-                            this.tank.rotationStart = performance.now();
-                            switch (newDir) {
-                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                                case 'left': this.tank.targetAngle = Math.PI; break;
-                                case 'right': this.tank.targetAngle = 0; break;
-                            }
-                        }
-                    }
-                });
-
-                document.addEventListener('keyup', e => {
-                    this.keysPressed[e.key] = false;
-                });
             }
 
             update() {
@@ -397,6 +584,11 @@
                     this.numberTimer -= 16;
                     if (this.numberTimer <= 0) this.showNumbers = false;
                     return;
+                }
+
+                if (this.showNextTargetTimer > 0) {
+                    this.showNextTargetTimer -= 16;
+                    if (this.showNextTargetTimer < 0) this.showNextTargetTimer = 0;
                 }
 
                 if (this.peekTimer > 0) {
@@ -468,12 +660,7 @@
                     }
                     const gridX = Math.floor(b.x);
                     const gridY = Math.floor(b.y);
-                    if (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1) {
-                        this.score.misses++;
-                        return false;
-                    }
-                    if (this.checkBulletCollision(b)) return false;
-                    return true;
+                    return !this.checkBulletCollision(b);
                 });
 
                 if (this.score.misses >= this.MAX_MISSES) {
@@ -486,17 +673,17 @@
 
             draw() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                this.drawMaze(isDarkMode ? '#333' : '#fff');
+                this.drawMaze(); // No need for isDarkMode parameter
                 this.drawTargets();
-                this.drawMarker(isDarkMode ? '#fff' : '#000');
+                this.drawMarker(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333' ? '#fff' : '#000');
                 this.drawTank();
                 this.drawBullets();
-                this.drawScoreboard(isDarkMode);
+                this.drawScoreboard(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333');
                 this.drawMessages();
             }
 
-            drawMaze(bgColor) {
+            drawMaze() {
+                const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
                 for (let y = 0; y < this.mazeSize; y++) {
                     for (let x = 0; x < this.mazeSize; x++) {
                         this.ctx.fillStyle = this.maze[y][x] === 1 ? 'gray' : bgColor;
@@ -517,7 +704,8 @@
                         this.ctx.beginPath();
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
-                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0) {
+
+                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0 || (t.num === this.currentTarget && this.showNextTargetTimer > 0)) {
                             this.ctx.fillStyle = 'white';
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
@@ -534,7 +722,7 @@
                     this.ctx.font = '30px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('x', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                    this.ctx.fillText('📍', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 }
             }
 
@@ -543,7 +731,7 @@
                 this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = 'green';
                 this.ctx.beginPath();
-                this.ctx.arc(0, 0, this.gridSize / 2 - 5, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, this.gridSize / 3 - 5, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.rotate(this.tank.currentAngle);
                 this.ctx.fillStyle = 'white';
