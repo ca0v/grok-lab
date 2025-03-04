@@ -543,10 +543,10 @@
 
             checkBulletCollision(bullet) {
                 let hitTarget = false;
-                const gridX = Math.floor(bullet.x);
-                const gridY = Math.floor(bullet.y);
+                const bulletGridX = Math.floor(bullet.x);
+                const bulletGridY = Math.floor(bullet.y);
                 this.targets.forEach(t => {
-                    if (!t.hit && gridX === t.x && gridY === t.y) {
+                    if (!t.hit && bulletGridX === t.x && bulletGridY === t.y) {
                         hitTarget = true;
                         if (t.num === this.currentTarget) {
                             t.hit = true;
@@ -559,8 +559,20 @@
                         }
                     }
                 });
-                if (!hitTarget && (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1)) {
-                    this.score.misses++;
+
+                if (!hitTarget) {
+                    if (bulletGridX >= 0 && bulletGridX < this.mazeSize && bulletGridY >= 0 && bulletGridY < this.mazeSize) {
+                        if (this.maze[bulletGridY][bulletGridX] === 1) {
+                            console.log(`Bullet hit wall at (${bulletGridX}, ${bulletGridY})`);
+                            this.maze[bulletGridY][bulletGridX] = 0; // Destroy wall where bullet hits
+                            this.score.misses++;
+                            hitTarget = true;
+                        }
+                    } else {
+                        console.log(`Bullet out of bounds at (${bulletGridX}, ${bulletGridY})`);
+                        this.score.misses++; // Bullet out of bounds
+                        hitTarget = true;
+                    }
                 }
                 return hitTarget;
             }
@@ -648,12 +660,7 @@
                     }
                     const gridX = Math.floor(b.x);
                     const gridY = Math.floor(b.y);
-                    if (gridX < 0 || gridX >= this.mazeSize || gridY < 0 || gridY >= this.mazeSize || this.maze[gridY][gridX] === 1) {
-                        this.score.misses++;
-                        return false;
-                    }
-                    if (this.checkBulletCollision(b)) return false;
-                    return true;
+                    return !this.checkBulletCollision(b);
                 });
 
                 if (this.score.misses >= this.MAX_MISSES) {
