@@ -299,14 +299,14 @@
                     const key = e.key.toUpperCase();
 
                     const keyActions = {
-                        'W': { dir: 'up', moveFar: true },
-                        'S': { dir: 'down', moveFar: true },
-                        'A': { dir: 'left', moveFar: true },
-                        'D': { dir: 'right', moveFar: true },
-                        'ARROWUP': { dir: 'up', moveFar: false },
-                        'ARROWDOWN': { dir: 'down', moveFar: false },
-                        'ARROWLEFT': { dir: 'left', moveFar: false },
-                        'ARROWRIGHT': { dir: 'right', moveFar: false }
+                        'W': { dir: 'up', moveFar: true, moveOne: false },
+                        'S': { dir: 'down', moveFar: true, moveOne: false },
+                        'A': { dir: 'left', moveFar: true, moveOne: false },
+                        'D': { dir: 'right', moveFar: true, moveOne: false },
+                        'ARROWUP': { dir: 'up', moveFar: false, moveOne: true },
+                        'ARROWDOWN': { dir: 'down', moveFar: false, moveOne: true },
+                        'ARROWLEFT': { dir: 'left', moveFar: false, moveOne: true },
+                        'ARROWRIGHT': { dir: 'right', moveFar: false, moveOne: true }
                     };
 
                     if (this.showNumbers && this.numberTimer > 0 && CONTROL_KEYS.includes(key) && key !== ' ') {
@@ -315,44 +315,56 @@
                         return;
                     }
 
-                    let newX = this.tank.x, newY = this.tank.y;
+                    let newX = this.tank.x;
+                    let newY = this.tank.y;
                     let newDir = this.tank.dir;
                     let isMoveFar = false;
 
+                    const handleDirectionKey = (direction, dx, dy, moveFar, moveOne) => {
+                        const newDir = direction;
+                        let newX = this.tank.x;
+                        let newY = this.tank.y;
+
+                        if (moveFar) {
+                            const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
+                            this.tank.desiredX = pos.x;
+                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                            this.tank.desiredDir = newDir;
+                            this.tank.ignoreCollisions = false;
+                        } else if (moveOne && this.tank.dir === newDir) {
+                            newX += dx;
+                            newY += dy;
+                            if (newY >= 0 && newY < this.mazeSize && newX >= 0 && newX < this.mazeSize && this.maze[newY][newX] === 0) {
+                                this.tank.x = newX;
+                                this.tank.y = newY;
+                                this.tank.desiredX = newX;
+                                this.tank.desiredY = newY;
+                                this.tank.ignoreCollisions = false;
+                            }
+                        }
+
+                        if (newDir !== this.tank.dir) {
+                            this.tank.dir = newDir;
+                            this.tank.desiredDir = newDir;
+                            this.tank.rotationStart = performance.now();
+                            switch (newDir) {
+                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
+                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
+                                case 'left': this.tank.targetAngle = Math.PI; break;
+                                case 'right': this.tank.targetAngle = 0; break;
+                            }
+                        }
+                    };
+
                     const action = keyActions[key];
                     if (action) {
-                        newDir = action.dir;
-                        isMoveFar = action.moveFar;
+                        handleDirectionKey(action.dir,
+                            action.dir === 'right' ? 1 : action.dir === 'left' ? -1 : 0,
+                            action.dir === 'down' ? 1 : action.dir === 'up' ? -1 : 0,
+                            action.moveFar,
+                            action.moveOne);
                     } else {
                         switch (key) {
-                            case 'W':
-                                newDir = 'up';
-                                isMoveFar = true;
-                                break;
-                            case 'S':
-                                newDir = 'down';
-                                isMoveFar = true;
-                                break;
-                            case 'A':
-                                newDir = 'left';
-                                isMoveFar = true;
-                                break;
-                            case 'D':
-                                newDir = 'right';
-                                isMoveFar = true;
-                                break;
-                            case 'ARROWUP':
-                                newDir = 'up';
-                                break;
-                            case 'ARROWDOWN':
-                                newDir = 'down';
-                                break;
-                            case 'ARROWLEFT':
-                                newDir = 'left';
-                                break;
-                            case 'ARROWRIGHT':
-                                newDir = 'right';
-                                break;
                             case ' ':
                                 let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
                                 if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
@@ -373,34 +385,6 @@
                             case 'P':
                                 this.peekTimer = 1000;
                                 return;
-                        }
-                    }
-                    
-                    if (isMoveFar) {
-                        const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                        this.tank.desiredX = pos.x;
-                        this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                        this.tank.desiredDir = newDir;
-                        this.tank.ignoreCollisions = false;
-                        if (newDir !== this.tank.dir) {
-                            this.tank.dir = newDir;
-                            this.tank.rotationStart = performance.now();
-                            switch (newDir) {
-                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                                case 'left': this.tank.targetAngle = Math.PI; break;
-                                case 'right': this.tank.targetAngle = 0; break;
-                            }
-                        }
-                    } else if (newDir !== this.tank.dir) {
-                        this.tank.dir = newDir;
-                        this.tank.desiredDir = newDir;
-                        this.tank.rotationStart = performance.now();
-                        switch (newDir) {
-                            case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                            case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                            case 'left': this.tank.targetAngle = Math.PI; break;
-                            case 'right': this.tank.targetAngle = 0; break;
                         }
                     }
                 });
@@ -570,6 +554,7 @@
                             t.hit = true;
                             this.score.hits++;
                             this.currentTarget++;
+                            this.showNextTargetTimer = 1000;
                         } else {
                             t.flashTimer = 1000;
                             this.score.misses++;
@@ -589,6 +574,11 @@
                     this.numberTimer -= 16;
                     if (this.numberTimer <= 0) this.showNumbers = false;
                     return;
+                }
+
+                if (this.showNextTargetTimer > 0) {
+                    this.showNextTargetTimer -= 16;
+                    if (this.showNextTargetTimer < 0) this.showNextTargetTimer = 0;
                 }
 
                 if (this.peekTimer > 0) {
@@ -709,7 +699,8 @@
                         this.ctx.beginPath();
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
-                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0) {
+
+                        if (this.showNumbers || t.flashTimer > 0 || this.peekTimer > 0 || (t.num === this.currentTarget && this.showNextTargetTimer > 0)) {
                             this.ctx.fillStyle = 'white';
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
