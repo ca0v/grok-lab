@@ -287,77 +287,95 @@
             }
 
             setupEventListeners() {
+                const CONTROL_KEYS = ['W', 'S', 'A', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT', ' ', 'M', 'P', '?'];
+
                 document.addEventListener('keydown', e => {
                     if (this.gameOver || this.levelCleared) return;
                     if (this.keysPressed[e.key]) return;
                     this.keysPressed[e.key] = true;
 
-                    if (['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
-                        e.preventDefault();
-                    }
+                    e.preventDefault(); // Always call preventDefault for keydown
 
-                    if (this.showNumbers && this.numberTimer > 0 &&
-                        ['w', 'W', 's', 'S', 'a', 'A', 'd', 'D', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                    const key = e.key.toUpperCase();
+
+                    const keyActions = {
+                        'W': { dir: 'up', moveFar: true },
+                        'S': { dir: 'down', moveFar: true },
+                        'A': { dir: 'left', moveFar: true },
+                        'D': { dir: 'right', moveFar: true },
+                        'ARROWUP': { dir: 'up', moveFar: false },
+                        'ARROWDOWN': { dir: 'down', moveFar: false },
+                        'ARROWLEFT': { dir: 'left', moveFar: false },
+                        'ARROWRIGHT': { dir: 'right', moveFar: false }
+                    };
+
+                    if (this.showNumbers && this.numberTimer > 0 && CONTROL_KEYS.includes(key) && key !== ' ') {
                         this.showNumbers = false;
                         this.numberTimer = 0;
                         return;
                     }
 
-                    if (this.showNumbers && this.numberTimer > 0) return;
-
                     let newX = this.tank.x, newY = this.tank.y;
                     let newDir = this.tank.dir;
                     let isMoveFar = false;
 
-                    switch (e.key) {
-                        case 'w': case 'W':
-                            newDir = 'up';
-                            isMoveFar = true;
-                            break;
-                        case 's': case 'S':
-                            newDir = 'down';
-                            isMoveFar = true;
-                            break;
-                        case 'a': case 'A':
-                            newDir = 'left';
-                            isMoveFar = true;
-                            break;
-                        case 'd': case 'D':
-                            newDir = 'right';
-                            isMoveFar = true;
-                            break;
-                        case 'ArrowUp':
-                            newDir = 'up';
-                            break;
-                        case 'ArrowDown':
-                            newDir = 'down';
-                            break;
-                        case 'ArrowLeft':
-                            newDir = 'left';
-                            break;
-                        case 'ArrowRight':
-                            newDir = 'right';
-                            break;
-                        case ' ':
-                            let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
-                            if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
-                            else this.bullets.push(bullet);
-                            return;
-                        case 'x': case 'X':
-                            if (!this.marker) {
-                                this.marker = { x: this.tank.x, y: this.tank.y };
-                            } else {
-                                this.tank.desiredX = this.marker.x;
-                                this.tank.desiredY = this.marker.y;
-                                this.tank.ignoreCollisions = true;
-                                this.marker = null;
-                            }
-                            return;
-                        case '?':
-                            this.peekTimer = 1000;
-                            return;
+                    const action = keyActions[key];
+                    if (action) {
+                        newDir = action.dir;
+                        isMoveFar = action.moveFar;
+                    } else {
+                        switch (key) {
+                            case 'W':
+                                newDir = 'up';
+                                isMoveFar = true;
+                                break;
+                            case 'S':
+                                newDir = 'down';
+                                isMoveFar = true;
+                                break;
+                            case 'A':
+                                newDir = 'left';
+                                isMoveFar = true;
+                                break;
+                            case 'D':
+                                newDir = 'right';
+                                isMoveFar = true;
+                                break;
+                            case 'ARROWUP':
+                                newDir = 'up';
+                                break;
+                            case 'ARROWDOWN':
+                                newDir = 'down';
+                                break;
+                            case 'ARROWLEFT':
+                                newDir = 'left';
+                                break;
+                            case 'ARROWRIGHT':
+                                newDir = 'right';
+                                break;
+                            case ' ':
+                                let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
+                                if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
+                                else this.bullets.push(bullet);
+                                return;
+                            case 'X':
+                            case 'M':
+                                if (!this.marker) {
+                                    this.marker = { x: this.tank.x, y: this.tank.y };
+                                } else {
+                                    this.tank.desiredX = this.marker.x;
+                                    this.tank.desiredY = this.marker.y;
+                                    this.tank.ignoreCollisions = true;
+                                    this.marker = null;
+                                }
+                                return;
+                            case '?':
+                            case 'P':
+                                this.peekTimer = 1000;
+                                return;
+                        }
                     }
-
+                    
                     if (isMoveFar) {
                         const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
                         this.tank.desiredX = pos.x;
@@ -375,7 +393,6 @@
                             }
                         }
                     } else if (newDir !== this.tank.dir) {
-                        // Arrow keys: Orient only
                         this.tank.dir = newDir;
                         this.tank.desiredDir = newDir;
                         this.tank.rotationStart = performance.now();
@@ -709,7 +726,7 @@
                     this.ctx.font = '30px Arial';
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('x', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                    this.ctx.fillText('📍', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 }
             }
 
