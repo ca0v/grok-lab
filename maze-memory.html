@@ -335,8 +335,6 @@
                             newX += dx;
                             newY += dy;
                             if (newY >= 0 && newY < this.mazeSize && newX >= 0 && newX < this.mazeSize && this.maze[newY][newX] === 0) {
-                                this.tank.x = newX;
-                                this.tank.y = newY;
                                 this.tank.desiredX = newX;
                                 this.tank.desiredY = newY;
                                 this.tank.ignoreCollisions = false;
@@ -726,7 +724,7 @@
                 this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = 'green';
                 this.ctx.beginPath();
-                this.ctx.arc(0, 0, this.gridSize / 2 - 5, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, this.gridSize / 3 - 5, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.rotate(this.tank.currentAngle);
                 this.ctx.fillStyle = 'white';
