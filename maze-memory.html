@@ -214,7 +214,8 @@
                 this.peekTimer = 0;
                 this.showNextTargetTimer = 0;
                 this.keysPressed = {};
-                this.score = { hits: 0, misses: 0 };
+                this.score = { hits: 0, lives: this.MAX_MISSES }; // Start with 5 lives
+                this.gameOverDelay = 0; // For 3-second restart delay
                 this.marker = null;
                 this.gameOver = false;
                 this.levelCleared = false;
@@ -231,7 +232,7 @@
                     }, // Show all targets for 1s, increment hits and target
                     miss: (target) => {
                         if (target) target.flashTimer = 1000;
-                        this.score.misses++;
+                        this.score.lives--;
                     },
                     peek: () => { this.showNextTimer = 1000; this.score.misses++; }, // Show next target, +1 miss
                 };
@@ -522,7 +523,7 @@
                 this.showNumbers = true;
                 this.numberTimer = 5000;
                 this.marker = null;
-                this.score.misses = 0;
+                this.score.lives = this.MAX_MISSES; // Reset lives to 5
                 this.levelCleared = false;
                 this.level++;
             }
@@ -697,8 +698,16 @@
                     return !this.checkBulletCollision(b);
                 });
 
-                if (this.score.misses >= this.MAX_MISSES) {
-                    this.gameOver = true;
+                if (this.score.lives <= 0) {
+                    if (!this.gameOver) {
+                        this.gameOver = true;
+                        this.gameOverDelay = 3000; // 3-second delay
+                    }
+                    this.gameOverDelay -= 16;
+                    if (this.gameOverDelay <= 0) {
+                        this.gameOver = false;
+                        this.resetLevel();
+                    }
                 } else if (this.targets.every(t => t.hit)) {
                     this.levelCleared = true;
                     setTimeout(() => this.resetLevel(), 2000);
@@ -799,10 +808,10 @@
 
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
                 this.ctx.textAlign = 'right';
-                this.ctx.fillText('Misses', this.canvas.width - 10, 10);
+                this.ctx.fillText('Lives', this.canvas.width - 10, 10);
                 this.ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
                 this.ctx.textAlign = 'center';
-                this.ctx.fillText(this.score.misses, this.canvas.width - 60, 10 + fontSize);
+                this.ctx.fillText(this.score.lives, this.canvas.width - 60, 10 + fontSize);
 
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
                 this.ctx.textAlign = 'center';
@@ -827,7 +836,7 @@
                     this.ctx.font = `${Math.floor(this.canvas.height / 20)}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText('Game Over! Final Score: ' + this.score.hits, this.canvas.width / 2, this.canvas.height / 2);
+                    this.ctx.fillText('Game Over! Restarting...', this.canvas.width / 2, this.canvas.height / 2);
                 }
             }
 
