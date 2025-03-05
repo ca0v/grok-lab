@@ -284,7 +284,7 @@
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.keysPressed = {};
-                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0 };
+                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0, moves: 0 }; // Add moves
                 this.gameOverDelay = 0;
                 this.marker = null;
                 this.gameOver = false;
@@ -353,14 +353,16 @@
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.marker = null;
                 if (this.level === 0) {
-                    this.score.lives = this.CONFIG.MAX_MISSES; // Initial game start
+                    this.score.lives = this.CONFIG.MAX_MISSES;
                 } else if (this.levelCleared) {
-                    this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES); // Add a life, cap at 5
-                } // Otherwise, keep lives as is (e.g., after game over)
-                this.levelCleared = false;
-                if (this.level > 0) {
-                    this.score.total += this.score.hits * this.score.lives;
+                    this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
                 }
+                if (this.level > 0) {
+                    const moveBonus = Math.max(0, 100 - this.score.moves * 2); // Bonus: 100 points minus 2 per move
+                    this.score.total += this.score.hits * this.score.lives + moveBonus;
+                }
+                this.score.moves = 0; // Reset after scoring
+                this.levelCleared = false;
                 this.level++;
             }
 
@@ -416,6 +418,7 @@
                         this.tank.desiredDir = input.dir;
                         this.tank.ignoreCollisions = false;
                         this.updateTankDirection(input.dir);
+                        this.score.moves++; // Count as a move
                         break;
                     }
                     case 'moveOne': {
@@ -432,6 +435,7 @@
                                 this.tank.desiredX = newX;
                                 this.tank.desiredY = newY;
                                 this.tank.ignoreCollisions = false;
+                                this.score.moves++; // Count as a move
                             }
                         }
                         this.updateTankDirection(input.dir);
@@ -447,6 +451,7 @@
                             this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
                             this.tank.desiredDir = input.dir;
                             this.tank.ignoreCollisions = false;
+                            this.score.moves++; // Count as a move
                         }
                         break;
                     }
@@ -465,6 +470,7 @@
                             this.tank.desiredY = this.marker.y;
                             this.tank.ignoreCollisions = true;
                             this.marker = null;
+                            this.score.moves++; // Count as a move
                         }
                         break;
                     }
@@ -481,6 +487,7 @@
                     this.tank.dir = newDir;
                     this.tank.desiredDir = newDir;
                     this.tank.rotationStart = performance.now();
+                    this.score.moves++; // Count rotation as a move
                     switch (newDir) {
                         case 'up': this.tank.targetAngle = -Math.PI / 2; break;
                         case 'down': this.tank.targetAngle = Math.PI / 2; break;
