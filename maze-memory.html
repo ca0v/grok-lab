@@ -224,12 +224,14 @@
                 BULLET_COLOR: 'red',
                 POWER_UP_COLOR: 'yellow',
                 TARGET_OUTLINE_COLOR: 'black',
+                CHAOS_MONSTER_COLOR: 'rgba(0, 255, 0, 0.5)', // Translucent slime green
                 GRID_SIZE: 40,
                 BANNER_HEIGHT_PERCENT: 0.11,
                 CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
                 MAX_MISSES: 5,
                 BULLET_SPEED: 0.2,
                 TANK_SPEED: 0.1, // For animation between cells
+                CHAOS_MONSTER_SPEED: 0.2,
                 MIN_GRID_SIZE: 7,
                 LEVELS_PER_CYCLE: 3,
                 POWER_UP_DURATION: 10000,
@@ -373,7 +375,7 @@
                 this.chaosMonster = {
                     pos: monsterPos.copy(),
                     origin: monsterPos.copy(),
-                    speed: 0.05,
+                    speed: this.CONFIG.CHAOS_MONSTER_SPEED,
                     holdingTarget: null,
                     target: null
                 };
@@ -884,7 +886,7 @@
                 if (this.chaosMonster) {
                     this.ctx.save();
                     this.ctx.translate(this.chaosMonster.pos.x * this.gridSize + this.gridSize / 2, this.chaosMonster.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
-                    this.ctx.fillStyle = 'purple';
+                    this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, this.gridSize / 2 * this.CONFIG.TANK_RADIUS_SCALE, 0, Math.PI * 2);
                     this.ctx.fill();
