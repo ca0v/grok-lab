@@ -183,10 +183,42 @@
         </div>
     </div>
     <script>
+        class Vector2D {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+            }
+
+            add(other) {
+                return new Vector2D(this.x + other.x, this.y + other.y);
+            }
+
+            subtract(other) {
+                return new Vector2D(this.x - other.x, this.y - other.y);
+            }
+
+            equals(other) {
+                return this.x === other.x && this.y === other.y;
+            }
+
+            distanceTo(other) {
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            copy() {
+                return new Vector2D(this.x, this.y);
+            }
+
+            multiply(scalar) {
+                return new Vector2D(this.x * scalar, this.y * scalar);
+            };
+
+        }
+
         class MazeMemoryGame {
-            // Configuration constants
             CONFIG = {
-                MONSTER_SPEED: 0.15,
                 MAZE_WALL_COLOR: 'gray',
                 TANK_COLOR: 'green',
                 BULLET_COLOR: 'red',
@@ -197,7 +229,7 @@
                 CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
                 MAX_MISSES: 5,
                 BULLET_SPEED: 0.2,
-                TANK_SPEED: 0.1,
+                TANK_SPEED: 0.1, // For animation between cells
                 MIN_GRID_SIZE: 7,
                 LEVELS_PER_CYCLE: 3,
                 POWER_UP_DURATION: 10000,
@@ -207,7 +239,7 @@
                 LEVEL_CLEAR_DELAY: 2000,
                 CONTROLS_HEIGHT: 200,
                 BULLET_SIZE: 5,
-                TANK_RADIUS_OFFSET: 0.4,
+                TANK_RADIUS_SCALE: 0.5,
                 TARGET_RADIUS_SCALE: 0.8,
                 TARGET_OUTLINE_WIDTH: 2,
                 POWER_UP_RADIUS_SCALE: 0.25,
@@ -223,8 +255,6 @@
                 TANK_FONT_SIZE: 20
             };
 
-
-            // Updated INPUT_MAP and handleInput from previous suggestion
             INPUT_MAP = {
                 'w': { action: 'moveFar', dir: 'up' },
                 's': { action: 'moveFar', dir: 'down' },
@@ -246,6 +276,13 @@
                 'shoot': { action: 'shoot' },
                 'marker': { action: 'marker' },
                 'peek': { action: 'peek' }
+            };
+
+            DIRECTION_VECTORS = {
+                'up': new Vector2D(0, -1),
+                'down': new Vector2D(0, 1),
+                'left': new Vector2D(-1, 0),
+                'right': new Vector2D(1, 0)
             };
 
             constructor() {
@@ -276,16 +313,24 @@
 
             initializeGameState() {
                 this.maze = [];
-                this.tank = this.createTank(0, 0);
-                this.chaosMonster = null; // Add chaos monster, null until level                this.targets = [];
+                this.tank = {
+                    pos: new Vector2D(0, 0), // Current position (fractional for animation)
+                    targetPos: new Vector2D(0, 0), // Integer target cell
+                    dir: 'right',
+                    currentAngle: 0,
+                    targetAngle: 0,
+                    rotationStart: null,
+                    ignoreCollisions: false
+                };
+                this.chaosMonster = null;
+                this.targets = [];
                 this.bullets = [];
                 this.powerUp = null;
-                this.powerUpTimer = 0;
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.keysPressed = {};
-                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0, moves: 0 }; // Add moves
+                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0, moves: 0 };
                 this.gameOverDelay = 0;
                 this.marker = null;
                 this.gameOver = false;
@@ -297,30 +342,16 @@
                 this.showNextTimer = 0;
             }
 
-            createTank(x, y) {
-                return {
-                    x, y,
-                    dir: 'right',
-                    currentAngle: 0,
-                    targetAngle: 0,
-                    rotationStart: null,
-                    desiredX: x,
-                    desiredY: y,
-                    desiredDir: 'right',
-                    ignoreCollisions: false
-                };
-            }
-
             initializeEventHandlers() {
                 this.eventHandlers = {
                     hit: () => {
                         this.score.hits++;
                         this.currentTarget++;
-                        this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
+                        this.showAllTimer = 0;
                     },
                     miss: (target) => {
                         if (target) target.flashTimer = this.CONFIG.FLASH_DURATION;
-                        this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
+                        this.showAllTimer = 0;
                         this.score.lives--;
                     }
                 };
@@ -332,48 +363,34 @@
                 const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE);
                 this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT;
                 this.updateCanvasSize();
-                this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor(this.level / this.CONFIG.TARGETS_PER_LEVEL);
 
                 this.maze = this.generateMaze();
                 const startPos = this.getRandomOpenPosition();
+                this.tank.pos = startPos.copy();
+                this.tank.targetPos = startPos.copy(); // Start at integer position
 
-                this.tank = this.createTank(startPos.x, startPos.y);
                 const monsterPos = this.getRandomOpenPosition();
                 this.chaosMonster = {
-                    x: monsterPos.x,
-                    y: monsterPos.y,
-                    originX: monsterPos.x, // Store initial spawn point
-                    originY: monsterPos.y,
-                    speed: this.CONFIG.MONSTER_SPEED,
+                    pos: monsterPos.copy(),
+                    origin: monsterPos.copy(),
+                    speed: 0.05,
                     holdingTarget: null,
-                    target: null // Will set immediately below
+                    target: null
                 };
+
+                this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor(this.level / this.CONFIG.TARGETS_PER_LEVEL);
                 this.targets = [];
                 this.assignTargetColors();
                 for (let i = 1; i <= this.maxTargets; i++) {
                     let pos;
                     do {
                         pos = this.getRandomOpenPosition();
-                    } while (this.targets.some(t => t.x === pos.x && t.y === pos.y) ||
-                    (pos.x === this.tank.x && pos.y === this.tank.y) ||
-                        (pos.x === this.chaosMonster.x && pos.y === this.chaosMonster.y));
-                    this.targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
+                    } while (this.targets.some(t => t.pos.equals(pos)) ||
+                    pos.equals(this.tank.pos) ||
+                        pos.equals(this.chaosMonster.pos));
+                    this.targets.push({ pos: pos, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
                 }
-                // Set initial target for chaos monster
-                let nearestTarget = null;
-                let minDistance = Infinity;
-                this.targets.forEach(t => {
-                    if (!t.hit) {
-                        const dx = t.x - this.chaosMonster.x;
-                        const dy = t.y - this.chaosMonster.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance < minDistance) {
-                            minDistance = distance;
-                            nearestTarget = t;
-                        }
-                    }
-                });
-                this.chaosMonster.target = nearestTarget;
+                this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
                 this.bullets = [];
                 this.powerUp = this.getRandomOpenPosition();
@@ -441,30 +458,20 @@
             handleInput(input) {
                 switch (input.action) {
                     case 'moveFar': {
-                        const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), input.dir);
-                        this.tank.desiredX = pos.x;
-                        this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                        this.tank.desiredDir = input.dir;
+                        const pos = this.moveFar(this.tank.targetPos, input.dir);
+                        this.tank.targetPos = pos;
                         this.tank.ignoreCollisions = false;
                         this.updateTankDirection(input.dir);
-                        this.score.moves++; // Count as a move
+                        this.score.moves++;
                         break;
                     }
                     case 'moveOne': {
                         if (this.tank.dir === input.dir) {
-                            const dx = input.dir === 'right' ? 1 : input.dir === 'left' ? -1 : 0;
-                            const dy = input.dir === 'down' ? 1 : input.dir === 'up' ? -1 : 0;
-                            const newX = this.tank.x + dx;
-                            const newY = this.tank.y + dy;
-                            if (
-                                newX >= 0 && newX < this.mazeSize &&
-                                newY >= 0 && newY < this.mazeSize &&
-                                this.maze[Math.floor(newY)][Math.floor(newX)] === 0
-                            ) {
-                                this.tank.desiredX = newX;
-                                this.tank.desiredY = newY;
+                            const newPos = this.tank.targetPos.add(this.DIRECTION_VECTORS[input.dir]);
+                            if (this.isValidMove(newPos)) {
+                                this.tank.targetPos = newPos;
                                 this.tank.ignoreCollisions = false;
-                                this.score.moves++; // Count as a move
+                                this.score.moves++;
                             }
                         }
                         this.updateTankDirection(input.dir);
@@ -475,17 +482,16 @@
                             this.updateTankDirection(input.dir);
                             this.lastButtonDirection = input.dir;
                         } else if (this.lastButtonDirection === input.dir) {
-                            const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), input.dir);
-                            this.tank.desiredX = pos.x;
-                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                            this.tank.desiredDir = input.dir;
+                            const pos = this.moveFar(this.tank.targetPos, input.dir);
+                            this.tank.targetPos = pos;
+                            this.tank.dir = input.dir;
                             this.tank.ignoreCollisions = false;
-                            this.score.moves++; // Count as a move
+                            this.score.moves++;
                         }
                         break;
                     }
                     case 'shoot': {
-                        let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
+                        let bullet = { pos: this.tank.pos.copy().add(new Vector2D(0.5, 0.5)), dir: this.tank.dir };
                         if (!this.checkBulletCollision(bullet)) {
                             this.bullets.push(bullet);
                         }
@@ -493,13 +499,12 @@
                     }
                     case 'marker': {
                         if (!this.marker) {
-                            this.marker = { x: Math.round(this.tank.x), y: Math.round(this.tank.y) };
+                            this.marker = this.tank.targetPos.copy();
                         } else {
-                            this.tank.desiredX = this.marker.x;
-                            this.tank.desiredY = this.marker.y;
+                            this.tank.targetPos = this.marker.copy();
                             this.tank.ignoreCollisions = true;
                             this.marker = null;
-                            this.score.moves++; // Count as a move
+                            this.score.moves++;
                         }
                         break;
                     }
@@ -513,10 +518,10 @@
 
             updateTankDirection(newDir) {
                 if (this.tank.dir !== newDir) {
+                    console.log("updateTankDirection", newDir)
                     this.tank.dir = newDir;
-                    this.tank.desiredDir = newDir;
                     this.tank.rotationStart = performance.now();
-                    this.score.moves++; // Count rotation as a move
+                    this.score.moves++;
                     switch (newDir) {
                         case 'up': this.tank.targetAngle = -Math.PI / 2; break;
                         case 'down': this.tank.targetAngle = Math.PI / 2; break;
@@ -527,14 +532,14 @@
             }
 
             updateCanvasSize() {
-                const windowWidth = window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL; // Fixed
-                const windowHeight = window.innerHeight - this.CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight; // Fixed
-                const maxSize = Math.min(windowWidth, windowHeight); // Limit by minimum of width and adjusted height
+                const windowWidth = window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
+                const windowHeight = window.innerHeight - this.CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
+                const maxSize = Math.min(windowWidth, windowHeight);
                 this.canvas.width = maxSize;
-                this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT; // Fixed
+                this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT;
                 this.canvas.height = maxSize + this.bannerHeight;
                 this.gridSize = Math.floor(maxSize / this.mazeSize);
-                this.topBorderSize = this.gridSize; // Set top border to match one row
+                this.topBorderSize = this.gridSize;
             }
 
             generateMaze() {
@@ -568,40 +573,22 @@
             }
 
             getRandomOpenPosition() {
-                let x, y;
+                let pos;
                 do {
-                    x = Math.floor(Math.random() * this.mazeSize);
-                    y = Math.floor(Math.random() * (this.mazeSize - 1)); // Exclude bottom row
-                } while (this.maze[y][x] !== 0);
-                return { x, y };
+                    pos = new Vector2D(
+                        Math.floor(Math.random() * this.mazeSize),
+                        Math.floor(Math.random() * (this.mazeSize - 1))
+                    );
+                } while (this.maze[pos.y][pos.x] !== 0);
+                return pos;
             }
 
             getRandomColor() {
                 const niceColors = [
-                    '#8B4513', // Saddle Brown
-                    '#483D8B', // Dark Slate Blue
-                    '#A52A2A', // Brown
-                    '#4B0082', // Indigo
-                    '#8A2BE2', // Blue Violet
-                    '#9932CC', // Dark Orchid
-                    '#800080', // Purple
-                    '#B22222', // Firebrick
-                    '#4682B4', // Steel Blue
-                    '#191970', // Midnight Blue
-                    '#9B30FF', // Purple (brighter)
-                    '#CD5C5C', // Indian Red
-                    '#9400D3', // Dark Violet
-                    '#FF4500', // Orange Red
-                    '#8B0000', // Dark Red
-                    '#4169E1', // Royal Blue
-                    '#C71585', // Medium Violet Red
-                    '#00008B', // Dark Blue
-                    '#DC143C', // Crimson
-                    '#6A5ACD', // Slate Blue
-                    '#FF6347', // Tomato
-                    '#7B68EE', // Medium Slate Blue
-                    '#DAA520', // Goldenrod
-                    '#BA55D3'  // Medium Orchid
+                    '#8B4513', '#483D8B', '#A52A2A', '#4B0082', '#8A2BE2', '#9932CC', '#800080',
+                    '#B22222', '#4682B4', '#191970', '#9B30FF', '#CD5C5C', '#9400D3', '#FF4500',
+                    '#8B0000', '#4169E1', '#C71585', '#00008B', '#DC143C', '#6A5ACD', '#FF6347',
+                    '#7B68EE', '#DAA520', '#BA55D3'
                 ];
                 const color = niceColors[this.colorIndex % niceColors.length];
                 this.colorIndex++;
@@ -615,8 +602,10 @@
                 }
             }
 
-            moveFar(x, y, dir) {
-                let newX = x, newY = y;
+            moveFar(startPos, dir) {
+                let pos = startPos.copy();
+                console.log('WASD', startPos, dir)
+                const dirVec = this.DIRECTION_VECTORS[dir];
                 let fromDir;
                 switch (dir) {
                     case 'up': fromDir = 'down'; break;
@@ -625,71 +614,64 @@
                     case 'right': fromDir = 'left'; break;
                 }
                 while (true) {
-                    const nextX = newX + (dir === 'right' ? 1 : dir === 'left' ? -1 : 0);
-                    const nextY = newY + (dir === 'down' ? 1 : dir === 'up' ? -1 : 0);
-                    if (nextX < 0 || nextX >= this.mazeSize || nextY < 0 || nextY >= this.mazeSize || this.maze[nextY][nextX] === 1) {
-                        break;
-                    }
-                    newX = nextX;
-                    newY = nextY;
-                    if (this.isIntersection(newX, newY, fromDir)) {
-                        break;
-                    }
+                    const nextPos = pos.add(dirVec);
+                    if (!this.isValidMove(nextPos)) break;
+                    pos = nextPos;
+                    if (this.isIntersection(pos, fromDir)) break;
                 }
-                return { x: newX, y: newY };
+                return pos;
             }
 
-            isIntersection(x, y, fromDir) {
+            isValidMove(pos) {
+                return pos.x >= 0 && pos.x < this.mazeSize &&
+                    pos.y >= 0 && pos.y < this.mazeSize &&
+                    this.maze[pos.y][pos.x] === 0;
+            }
+
+            isIntersection(pos, fromDir) {
                 const directions = [
-                    { dx: 0, dy: -1, dir: 'up' },
-                    { dx: 0, dy: 1, dir: 'down' },
-                    { dx: -1, dy: 0, dir: 'left' },
-                    { dx: 1, dy: 0, dir: 'right' }
+                    { vec: new Vector2D(0, -1), dir: 'up' },
+                    { vec: new Vector2D(0, 1), dir: 'down' },
+                    { vec: new Vector2D(-1, 0), dir: 'left' },
+                    { vec: new Vector2D(1, 0), dir: 'right' }
                 ];
                 let openPaths = 0;
                 directions.forEach(d => {
-                    const newX = x + d.dx;
-                    const newY = y + d.dy;
-                    if (newX >= 0 && newX < this.mazeSize && newY >= 0 && newY < this.mazeSize && this.maze[newY][newX] === 0 && d.dir !== fromDir) {
-                        openPaths++;
-                    }
+                    const newPos = pos.add(d.vec);
+                    if (this.isValidMove(newPos) && d.dir !== fromDir) openPaths++;
                 });
                 return openPaths > 1;
             }
 
             checkBulletCollision(bullet) {
                 let hitTarget = false;
-                const bulletGridX = Math.floor(bullet.x);
-                const bulletGridY = Math.floor(bullet.y);
+                const bulletGrid = new Vector2D(Math.floor(bullet.pos.x), Math.floor(bullet.pos.y));
 
-                // Check for correct target hit first
                 for (const t of this.targets) {
-                    if (!t.hit && bulletGridX === t.x && bulletGridY === t.y && t.num === this.currentTarget) {
+                    if (!t.hit && bulletGrid.equals(t.pos) && t.num === this.currentTarget) {
                         t.hit = true;
                         this.eventHandlers.hit();
                         return true;
                     }
                 }
 
-                // Check for incorrect target hit or wall
                 this.targets.forEach(t => {
-                    if (!t.hit && bulletGridX === t.x && bulletGridY === t.y) {
+                    if (!t.hit && bulletGrid.equals(t.pos)) {
                         hitTarget = true;
                         this.eventHandlers.miss(t);
                     }
                 });
 
-                // Check for power-up hit
-                if (this.powerUp && bulletGridX === this.powerUp.x && bulletGridY === this.powerUp.y) {
-                    this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION; // Immediately show all numbers
-                    this.powerUp = null; // Remove power-up after hit
-                    hitTarget = true; // Bullet stops here
+                if (this.powerUp && bulletGrid.equals(this.powerUp)) {
+                    this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
+                    this.powerUp = null;
+                    hitTarget = true;
                 }
 
                 if (!hitTarget) {
-                    if (bulletGridX >= 0 && bulletGridX < this.mazeSize && bulletGridY >= 0 && bulletGridY < this.mazeSize) {
-                        if (this.maze[bulletGridY][bulletGridX] === 1) {
-                            this.maze[bulletGridY][bulletGridX] = 0;
+                    if (bulletGrid.x >= 0 && bulletGrid.x < this.mazeSize && bulletGrid.y >= 0 && bulletGrid.y < this.mazeSize) {
+                        if (this.maze[bulletGrid.y][bulletGrid.x] === 1) {
+                            this.maze[bulletGrid.y][bulletGrid.x] = 0;
                             this.eventHandlers.miss();
                             hitTarget = true;
                         }
@@ -701,6 +683,21 @@
                 return hitTarget;
             }
 
+            findNearestTarget(pos) {
+                let nearestTarget = null;
+                let minDistance = Infinity;
+                this.targets.forEach(t => {
+                    if (!t.hit) {
+                        const distance = pos.distanceTo(t.pos);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestTarget = t;
+                        }
+                    }
+                });
+                return nearestTarget;
+            }
+
             update() {
                 if (this.levelCleared) return;
 
@@ -709,9 +706,6 @@
                     if (this.numberTimer <= 0) this.showNumbers = false;
                     return;
                 }
-
-                const tankGridX = Math.floor(this.tank.x);
-                const tankGridY = Math.floor(this.tank.y);
 
                 if (this.showAllTimer > 0) {
                     this.showAllTimer -= this.CONFIG.FRAME_DELTA;
@@ -724,51 +718,19 @@
                 }
 
                 if (!this.gameOver) {
-                    if (this.tank.x !== this.tank.desiredX || this.tank.y !== this.tank.desiredY) {
-                        const dx = this.tank.desiredX - this.tank.x;
-                        const dy = this.tank.desiredY - this.tank.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        if (distance > this.CONFIG.TANK_SPEED && distance > 0) {
-                            const moveX = (dx / distance) * this.CONFIG.TANK_SPEED;
-                            const moveY = (dy / distance) * this.CONFIG.TANK_SPEED;
-                            const nextX = this.tank.x + moveX;
-                            const nextY = this.tank.y + moveY;
-                            const startGridX = Math.floor(this.tank.x);
-                            const startGridY = Math.floor(this.tank.y);
-                            const endGridX = Math.floor(nextX);
-                            const endGridY = Math.floor(nextY);
-
-                            if (this.tank.ignoreCollisions) {
-                                this.tank.x = nextX;
-                                this.tank.y = nextY;
-                            } else {
-                                if (startGridX !== endGridX || startGridY !== endGridY) {
-                                    if (endGridX >= 0 && endGridX < this.mazeSize && endGridY >= 0 && endGridY < this.mazeSize && this.maze[endGridY][endGridX] === 0) {
-                                        this.tank.x = nextX;
-                                        this.tank.y = nextY;
-                                    } else {
-                                        if (startGridX !== endGridX) {
-                                            this.tank.x = endGridX > startGridX ? startGridX + 1 - 0.001 : startGridX - 0.001;
-                                        }
-                                        if (startGridY !== endGridY) {
-                                            this.tank.y = endGridY > startGridY ? startGridY + 1 - 0.001 : startGridY - 0.001;
-                                        }
-                                        this.tank.desiredX = this.tank.x;
-                                        this.tank.desiredY = this.tank.y;
-                                    }
-                                } else {
-                                    this.tank.x = nextX;
-                                    this.tank.y = nextY;
-                                }
-                            }
-                        } else {
-                            this.tank.x = this.tank.desiredX;
-                            this.tank.y = this.tank.desiredY;
-                            this.tank.ignoreCollisions = false;
-                        }
+                    // Tank movement: Smoothly interpolate to targetPos
+                    const tankDelta = this.tank.targetPos.subtract(this.tank.pos);
+                    const tankDistance = tankDelta.distanceTo(new Vector2D(0, 0));
+                    if (tankDistance > this.CONFIG.TANK_SPEED) {
+                        const move = tankDelta.multiply(this.CONFIG.TANK_SPEED / tankDistance);
+                        this.tank.pos = this.tank.pos.add(move);
+                    } else {
+                        this.tank.pos = this.tank.targetPos.copy();
+                        this.tank.ignoreCollisions = false;
                     }
 
                     if (this.tank.rotationStart !== null) {
+                        console.log("this.tank.rotationStart", this.tank.rotationStart)
                         const elapsed = performance.now() - this.tank.rotationStart;
                         if (elapsed < this.CONFIG.ROTATION_DURATION) {
                             const progress = elapsed / this.CONFIG.ROTATION_DURATION;
@@ -782,52 +744,33 @@
                     // Chaos monster (ghost) movement
                     if (this.chaosMonster) {
                         if (!this.chaosMonster.holdingTarget) {
-                            // Move toward target
                             if (this.chaosMonster.target) {
-                                const dx = this.chaosMonster.target.x - this.chaosMonster.x;
-                                const dy = this.chaosMonster.target.y - this.chaosMonster.y;
+                                const dx = this.chaosMonster.target.pos.x - this.chaosMonster.pos.x;
+                                const dy = this.chaosMonster.target.pos.y - this.chaosMonster.pos.y;
                                 const distance = Math.sqrt(dx * dx + dy * dy);
                                 if (distance > this.chaosMonster.speed) {
                                     const moveX = (dx / distance) * this.chaosMonster.speed;
                                     const moveY = (dy / distance) * this.chaosMonster.speed;
-                                    this.chaosMonster.x += moveX; // No collision check
-                                    this.chaosMonster.y += moveY;
+                                    this.chaosMonster.pos.x += moveX;
+                                    this.chaosMonster.pos.y += moveY;
                                 } else {
-                                    // Pick up the target
                                     this.chaosMonster.holdingTarget = this.chaosMonster.target;
                                     this.chaosMonster.target = null;
                                 }
                             } else {
-                                // Find new target if current one is hit or missing
-                                let nearestTarget = null;
-                                let minDistance = Infinity;
-                                this.targets.forEach(t => {
-                                    if (!t.hit) {
-                                        const dx = t.x - this.chaosMonster.x;
-                                        const dy = t.y - this.chaosMonster.y;
-                                        const distance = Math.sqrt(dx * dx + dy * dy);
-                                        if (distance < minDistance) {
-                                            minDistance = distance;
-                                            nearestTarget = t;
-                                        }
-                                    }
-                                });
-                                this.chaosMonster.target = nearestTarget;
+                                this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
                             }
                         } else {
-                            // Move back to origin
-                            const dx = this.chaosMonster.originX - this.chaosMonster.x;
-                            const dy = this.chaosMonster.originY - this.chaosMonster.y;
+                            const dx = this.chaosMonster.origin.x - this.chaosMonster.pos.x;
+                            const dy = this.chaosMonster.origin.y - this.chaosMonster.pos.y;
                             const distance = Math.sqrt(dx * dx + dy * dy);
                             if (distance > this.chaosMonster.speed) {
                                 const moveX = (dx / distance) * this.chaosMonster.speed;
                                 const moveY = (dy / distance) * this.chaosMonster.speed;
-                                this.chaosMonster.x += moveX; // No collision check
-                                this.chaosMonster.y += moveY;
+                                this.chaosMonster.pos.x += moveX;
+                                this.chaosMonster.pos.y += moveY;
                             } else {
-                                // Drop the target at origin
-                                this.chaosMonster.holdingTarget.x = this.chaosMonster.originX;
-                                this.chaosMonster.holdingTarget.y = this.chaosMonster.originY;
+                                this.chaosMonster.holdingTarget.pos = this.chaosMonster.origin.copy();
                                 this.chaosMonster.holdingTarget = null;
                             }
                         }
@@ -841,12 +784,8 @@
                     });
 
                     this.bullets = this.bullets.filter(b => {
-                        switch (b.dir) {
-                            case 'up': b.y -= this.CONFIG.BULLET_SPEED; break;
-                            case 'down': b.y += this.CONFIG.BULLET_SPEED; break;
-                            case 'left': b.x -= this.CONFIG.BULLET_SPEED; break;
-                            case 'right': b.x += this.CONFIG.BULLET_SPEED; break;
-                        }
+                        const dirVec = this.DIRECTION_VECTORS[b.dir];
+                        b.pos = b.pos.add(dirVec.multiply(this.CONFIG.BULLET_SPEED));
                         return !this.checkBulletCollision(b);
                     });
                 }
@@ -875,22 +814,10 @@
                 this.drawPowerUp();
                 this.drawMarker(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333' ? '#fff' : '#000');
                 this.drawTank();
-                this.drawChaosMonster(); // Add this
+                this.drawChaosMonster();
                 this.drawBullets();
                 this.drawScoreboard(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333');
                 this.drawMessages();
-            }
-
-            drawChaosMonster() {
-                if (this.chaosMonster) {
-                    this.ctx.save();
-                    this.ctx.translate(this.chaosMonster.x * this.gridSize + this.gridSize / 2, this.chaosMonster.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
-                    this.ctx.fillStyle = 'rgba(128, 0, 128, 0.5)'; // Distinct translucent color for chaos monster
-                    this.ctx.beginPath();
-                    this.ctx.arc(0, 0, this.gridSize / 2 * this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
-                    this.ctx.fill();
-                    this.ctx.restore();
-                }
             }
 
             drawMaze() {
@@ -909,11 +836,11 @@
                         const targetRadius = (this.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
                         this.ctx.fillStyle = this.CONFIG.TARGET_OUTLINE_COLOR;
                         this.ctx.beginPath();
-                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius + 2, 0, Math.PI * 2);
+                        this.ctx.arc(t.pos.x * this.gridSize + this.gridSize / 2, t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius + 2, 0, Math.PI * 2);
                         this.ctx.fill();
                         this.ctx.fillStyle = t.color;
                         this.ctx.beginPath();
-                        this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
+                        this.ctx.arc(t.pos.x * this.gridSize + this.gridSize / 2, t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius, 0, Math.PI * 2);
                         this.ctx.fill();
 
                         if (this.showNumbers || t.flashTimer > 0 || this.showAllTimer > 0 || (t.num === this.currentTarget && this.showNextTimer > 0)) {
@@ -921,7 +848,7 @@
                             this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
                             this.ctx.textAlign = 'center';
                             this.ctx.textBaseline = 'middle';
-                            this.ctx.fillText(t.num, t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                            this.ctx.fillText(t.num, t.pos.x * this.gridSize + this.gridSize / 2, t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                         }
                     }
                 });
@@ -939,10 +866,10 @@
 
             drawTank() {
                 this.ctx.save();
-                this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                this.ctx.translate(this.tank.pos.x * this.gridSize + this.gridSize / 2, this.tank.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
                 this.ctx.beginPath();
-                this.ctx.arc(0, 0, this.gridSize / 2 * this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, this.gridSize / 2 * this.CONFIG.TANK_RADIUS_SCALE, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.rotate(this.tank.currentAngle);
                 this.ctx.fillStyle = 'white';
@@ -953,10 +880,22 @@
                 this.ctx.restore();
             }
 
+            drawChaosMonster() {
+                if (this.chaosMonster) {
+                    this.ctx.save();
+                    this.ctx.translate(this.chaosMonster.pos.x * this.gridSize + this.gridSize / 2, this.chaosMonster.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                    this.ctx.fillStyle = 'purple';
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, this.gridSize / 2 * this.CONFIG.TANK_RADIUS_SCALE, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
+            }
+
             drawBullets() {
                 this.ctx.fillStyle = this.CONFIG.BULLET_COLOR;
                 this.bullets.forEach(b => {
-                    this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize + this.topBorderSize, this.CONFIG.BULLET_SIZE, this.CONFIG.BULLET_SIZE);
+                    this.ctx.fillRect(b.pos.x * this.gridSize, b.pos.y * this.gridSize + this.topBorderSize, this.CONFIG.BULLET_SIZE, this.CONFIG.BULLET_SIZE);
                 });
             }
 
@@ -995,9 +934,8 @@
                 this.ctx.fillStyle = 'green';
                 const circleRadius = fontSize / 4;
                 const circleSpacing = circleRadius * 3;
-                // Adjusted startX to shift left and fit all circles
-                const totalWidth = (this.score.lives - 1) * circleSpacing + 2 * circleRadius; // Full width of all circles
-                const startX = this.canvas.width - 10 - totalWidth - circleRadius; // Align right edge with margin
+                const totalWidth = (this.score.lives - 1) * circleSpacing + 2 * circleRadius;
+                const startX = this.canvas.width - 10 - totalWidth - circleRadius;
                 for (let i = 0; i < this.score.lives; i++) {
                     this.ctx.beginPath();
                     this.ctx.arc(startX + i * circleSpacing + circleRadius, 10 + fontSize + circleRadius, circleRadius, 0, Math.PI * 2);
@@ -1011,7 +949,7 @@
                     const countdown = Math.ceil(this.numberTimer / 1000);
                     this.ctx.fillText(countdown, this.canvas.width / 2, 10 + fontSize);
                 } else {
-                    this.ctx.fillText(`Score: ${this.score.total}`, this.canvas.width / 2, 10 + fontSize);
+                    this.ctx.fillText(`Score: ${this.score.total} (Moves: ${this.score.moves})`, this.canvas.width / 2, 10 + fontSize);
                 }
             }
 
