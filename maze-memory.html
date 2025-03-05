@@ -242,10 +242,11 @@
                 BANNER_HEIGHT_PERCENT: 0.11,
                 CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
                 MAX_MISSES: 5,
-                BULLET_SPEED: 0.2,
-                TANK_SPEED: 0.1, // For animation between cells
-                CHAOS_MONSTER_SPEED: 0.2,
-                MIN_GRID_SIZE: 7,
+                FRAME_DELTA: 1000 / 30, // Initial milliseconds per frame (33.33ms for 30 FPS)
+                BULLET_SPEED: 12, // These speeds can be adjusted
+                TANK_SPEED: 6,
+                CHAOS_MONSTER_SPEED: 9,
+                MIN_GRID_SIZE: 5,
                 MAX_GRID_SIZE: 15,
                 LEVELS_PER_CYCLE: 3,
                 POWER_UP_DURATION: 10000,
@@ -259,7 +260,6 @@
                 TARGET_RADIUS_SCALE: 0.8,
                 TARGET_OUTLINE_WIDTH: 2,
                 POWER_UP_RADIUS_SCALE: 0.25,
-                FRAME_DELTA: 16,
                 ROTATION_DURATION: 50,
                 FLASH_DURATION: 1000,
                 MAZE_SIZE_INCREMENT: 2,
@@ -310,6 +310,8 @@
                 this.resetLevel(true); // Start with current level
                 this.setupInputHandlers();
                 window.addEventListener('resize', () => this.updateCanvasSize());
+                this.lastTime = performance.now();
+                this.accumulatedTime = 0;
                 this.gameLoop();
             }
 
@@ -747,33 +749,35 @@
                 return nearestTarget;
             }
 
-            update() {
+            update(deltaTime) { // Changed to accept deltaTime parameter
                 if (this.levelCleared) return;
 
                 if (this.showNumbers && this.numberTimer > 0) {
-                    this.numberTimer -= this.CONFIG.FRAME_DELTA;
+                    this.numberTimer -= deltaTime * 1000; // Convert to milliseconds
                     if (this.numberTimer <= 0) this.showNumbers = false;
                     return;
                 }
 
                 if (this.showAllTimer > 0) {
-                    this.showAllTimer -= this.CONFIG.FRAME_DELTA;
+                    this.showAllTimer -= deltaTime * 1000;
                     if (this.showAllTimer < 0) this.showAllTimer = 0;
                 }
 
                 if (this.showNextTimer > 0) {
-                    this.showNextTimer -= this.CONFIG.FRAME_DELTA;
+                    this.showNextTimer -= deltaTime * 1000;
                     if (this.showNextTimer < 0) this.showNextTimer = 0;
                 }
 
                 if (!this.gameOver) {
-                    // Animate tank to targetPos at constant TANK_SPEED
+                    // Animate tank to targetPos with time-based speed
                     if (!this.tank.pos.equals(this.tank.targetPos)) {
                         const dir = this.tank.targetPos.subtract(this.tank.pos);
                         const distance = dir.distanceTo(new Vector2D(0, 0));
-                        const move = dir.multiply(this.CONFIG.TANK_SPEED / distance);
-                        this.tank.pos = this.tank.pos.add(move);
-                        if (distance <= this.CONFIG.TANK_SPEED) {
+                        const speed = this.CONFIG.TANK_SPEED * deltaTime;
+                        if (distance > speed) {
+                            const move = dir.multiply(speed / distance);
+                            this.tank.pos = this.tank.pos.add(move);
+                        } else {
                             this.tank.pos = this.tank.targetPos.copy();
                             this.tank.ignoreCollisions = false;
                         }
@@ -797,7 +801,7 @@
                                 const dy = this.chaosMonster.target.pos.y - this.chaosMonster.pos.y;
                                 const distance = Math.sqrt(dx * dx + dy * dy);
                                 if (distance > 0.001) {
-                                    const move = new Vector2D(dx, dy).multiply(Math.min(this.chaosMonster.speed, distance) / distance);
+                                    const move = new Vector2D(dx, dy).multiply(Math.min(this.CONFIG.CHAOS_MONSTER_SPEED * deltaTime, distance) / distance);
                                     this.chaosMonster.pos = this.chaosMonster.pos.add(move);
                                 } else {
                                     this.chaosMonster.holdingTarget = this.chaosMonster.target;
@@ -811,7 +815,7 @@
                             const dy = this.chaosMonster.origin.y - this.chaosMonster.pos.y;
                             const distance = Math.sqrt(dx * dx + dy * dy);
                             if (distance > 0.001) {
-                                const move = new Vector2D(dx, dy).multiply(Math.min(this.chaosMonster.speed, distance) / distance);
+                                const move = new Vector2D(dx, dy).multiply(Math.min(this.CONFIG.CHAOS_MONSTER_SPEED * deltaTime, distance) / distance);
                                 this.chaosMonster.pos = this.chaosMonster.pos.add(move);
                             } else {
                                 this.chaosMonster.holdingTarget.pos = this.chaosMonster.origin.copy();
@@ -835,14 +839,14 @@
 
                     this.targets.forEach(t => {
                         if (t.flashTimer > 0) {
-                            t.flashTimer -= this.CONFIG.FRAME_DELTA;
+                            t.flashTimer -= deltaTime * 1000;
                             if (t.flashTimer < 0) t.flashTimer = 0;
                         }
                     });
 
                     this.bullets = this.bullets.filter(b => {
                         const dirVec = this.DIRECTION_VECTORS[b.dir];
-                        b.pos = b.pos.add(dirVec.multiply(this.CONFIG.BULLET_SPEED));
+                        b.pos = b.pos.add(dirVec.multiply(this.CONFIG.BULLET_SPEED * deltaTime));
                         return !this.checkBulletCollision(b);
                     });
                 }
@@ -852,16 +856,16 @@
                         this.gameOver = true;
                         this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY;
                     }
-                    this.gameOverDelay -= this.CONFIG.FRAME_DELTA;
+                    this.gameOverDelay -= deltaTime * 1000;
                     if (this.gameOverDelay <= 0) {
                         this.gameOver = false;
                         this.score.lives = this.CONFIG.MAX_MISSES;
-                        this.resetLevel(true); // Restart same level
+                        this.resetLevel(true);
                         this.saveGameState();
                     }
                 } else if (this.targets.every(t => t.hit)) {
                     this.levelCleared = true;
-                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY); // Progress to next level
+                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY);
                 }
             }
 
@@ -1063,10 +1067,19 @@
                 localStorage.removeItem('tankMemoryMazeState');
             }
 
-            gameLoop() {
-                this.update();
-                this.draw();
-                requestAnimationFrame(() => this.gameLoop());
+            gameLoop(currentTime = performance.now()) {
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                this.accumulatedTime += deltaTime;
+
+                // Update as many times as needed to catch up with accumulated time
+                while (this.accumulatedTime >= this.CONFIG.FRAME_DELTA) {
+                    this.update(this.CONFIG.FRAME_DELTA / 1000); // Fixed time step in seconds
+                    this.accumulatedTime -= this.CONFIG.FRAME_DELTA;
+                }
+
+                this.draw(); // Draw every frame
+                requestAnimationFrame((time) => this.gameLoop(time)); // Pass time correctly
             }
         }
 
