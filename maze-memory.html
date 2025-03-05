@@ -183,6 +183,9 @@
         </div>
     </div>
     <script>
+        function range(n) {
+            return Array.from({ length: n }, (_, i) => i);
+        }
         class Vector2D {
             constructor(x, y) {
                 this.x = x;
@@ -395,8 +398,7 @@
                 this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
                 this.bullets = [];
-                this.powerUps = [];
-                for (let i = 0; i < 3; i++) {
+                this.powerUps = range(3).map(() => {
                     let pos;
                     do {
                         pos = this.getRandomOpenPosition();
@@ -404,8 +406,10 @@
                     pos.equals(this.tank.pos) ||
                     pos.equals(this.chaosMonster.pos) ||
                         this.powerUps.some(p => p.pos.equals(pos)));
-                    this.powerUps.push({ pos: pos, opacity: i === 2 ? 1 : 0, revealStart: i === 2 ? performance.now() : null });
-                }
+                    return { pos: pos, opacity: 0, revealStart: null };
+                });
+
+                this.powerUps[this.powerUps.length - 1].revealStart = performance.now();
 
                 this.currentTarget = 1;
                 this.showNumbers = true;
@@ -675,17 +679,11 @@
                     }
                 });
 
-                for (let i = 0; i < this.powerUps.length; i++) {
-                    const p = this.powerUps[i];
-                    if (bulletGrid.equals(p.pos) && p.opacity === 1) {
-                        this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
-                        this.powerUps.splice(i, 1); // Pop the hit power-up
-                        if (this.powerUps.length > 0) {
-                            this.powerUps[this.powerUps.length - 1].revealStart = performance.now(); // Reveal last one
-                        }
-                        hitTarget = true;
-                        break;
-                    }
+                if (this.powerUps.some(p => bulletGrid.equals(p.pos) && p.opacity === 1)) {
+                    this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
+                    this.powerUps = this.powerUps.filter(p => !(bulletGrid.equals(p.pos) && p.opacity === 1));
+                    if (this.powerUps.length) this.powerUps.at(-1).revealStart = performance.now();
+                    hitTarget = true;
                 }
 
                 if (!hitTarget) {
