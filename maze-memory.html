@@ -637,8 +637,8 @@
                 for (const t of this.targets) {
                     if (!t.hit && bulletGridX === t.x && bulletGridY === t.y && t.num === this.currentTarget) {
                         t.hit = true;
-                        this.eventHandlers.hit(); // Raise "hit" event
-                        return true; // Bullet stops after hitting correct target
+                        this.eventHandlers.hit();
+                        return true;
                     }
                 }
 
@@ -646,19 +646,26 @@
                 this.targets.forEach(t => {
                     if (!t.hit && bulletGridX === t.x && bulletGridY === t.y) {
                         hitTarget = true;
-                        this.eventHandlers.miss(t); // Raise "miss" event with target, flashes it
+                        this.eventHandlers.miss(t);
                     }
                 });
+
+                // Check for power-up hit
+                if (this.powerUp && bulletGridX === this.powerUp.x && bulletGridY === this.powerUp.y) {
+                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION;
+                    this.powerUp = null; // Remove power-up after hit
+                    hitTarget = true; // Bullet stops here
+                }
 
                 if (!hitTarget) {
                     if (bulletGridX >= 0 && bulletGridX < this.mazeSize && bulletGridY >= 0 && bulletGridY < this.mazeSize) {
                         if (this.maze[bulletGridY][bulletGridX] === 1) {
-                            this.maze[bulletGridY][bulletGridX] = 0; // Destroy wall
-                            this.eventHandlers.miss(); // Raise "miss" event, no target to flash
+                            this.maze[bulletGridY][bulletGridX] = 0;
+                            this.eventHandlers.miss();
                             hitTarget = true;
                         }
                     } else {
-                        this.eventHandlers.miss(); // Out of bounds, no target
+                        this.eventHandlers.miss();
                         hitTarget = true;
                     }
                 }
@@ -676,10 +683,7 @@
 
                 const tankGridX = Math.floor(this.tank.x);
                 const tankGridY = Math.floor(this.tank.y);
-                if (this.powerUp && tankGridX === this.powerUp.x && tankGridY === this.powerUp.y) {
-                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION;
-                    this.powerUp = null;
-                }
+                // Removed: if (this.powerUp && tankGridX === this.powerUp.x && tankGridY === this.powerUp.y) { ... }
 
                 if (this.powerUpTimer > 0) {
                     this.powerUpTimer -= this.CONFIG.FRAME_DELTA;
@@ -714,13 +718,11 @@
                             this.tank.x = nextX;
                             this.tank.y = nextY;
                         } else {
-                            // Check if moving to a new grid cell hits a wall
                             if (startGridX !== endGridX || startGridY !== endGridY) {
                                 if (endGridX >= 0 && endGridX < this.mazeSize && endGridY >= 0 && endGridY < this.mazeSize && this.maze[endGridY][endGridX] === 0) {
                                     this.tank.x = nextX;
                                     this.tank.y = nextY;
                                 } else {
-                                    // Stop at the wall boundary
                                     if (startGridX !== endGridX) {
                                         this.tank.x = endGridX > startGridX ? startGridX + 1 - 0.001 : startGridX - 0.001;
                                     }
@@ -731,7 +733,6 @@
                                     this.tank.desiredY = this.tank.y;
                                 }
                             } else {
-                                // Within same cell, safe to move
                                 this.tank.x = nextX;
                                 this.tank.y = nextY;
                             }
