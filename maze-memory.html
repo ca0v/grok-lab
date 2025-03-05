@@ -652,7 +652,7 @@
 
                 // Check for power-up hit
                 if (this.powerUp && bulletGridX === this.powerUp.x && bulletGridY === this.powerUp.y) {
-                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION;
+                    this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION; // Immediately show all numbers
                     this.powerUp = null; // Remove power-up after hit
                     hitTarget = true; // Bullet stops here
                 }
