@@ -352,7 +352,11 @@
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.marker = null;
-                this.score.lives = this.CONFIG.MAX_MISSES;
+                if (this.level === 0) {
+                    this.score.lives = this.CONFIG.MAX_MISSES; // Initial game start
+                } else if (this.levelCleared) {
+                    this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES); // Add a life, cap at 5
+                } // Otherwise, keep lives as is (e.g., after game over)
                 this.levelCleared = false;
                 if (this.level > 0) {
                     this.score.total += this.score.hits * this.score.lives;
@@ -869,6 +873,7 @@
                     this.ctx.fill();
                 }
             }
+
             drawScoreboard(isDarkMode) {
                 const fontSize = Math.floor(this.bannerHeight / this.CONFIG.SCOREBOARD_FONT_SCALE);
                 this.ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
@@ -886,9 +891,17 @@
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
                 this.ctx.textAlign = 'right';
                 this.ctx.fillText('Lives', this.canvas.width - 10, 10);
-                this.ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
-                this.ctx.textAlign = 'center';
-                this.ctx.fillText(this.score.lives, this.canvas.width - 60, 10 + fontSize);
+                this.ctx.fillStyle = 'green';
+                const circleRadius = fontSize / 4;
+                const circleSpacing = circleRadius * 3;
+                // Adjusted startX to shift left and fit all circles
+                const totalWidth = (this.score.lives - 1) * circleSpacing + 2 * circleRadius; // Full width of all circles
+                const startX = this.canvas.width - 10 - totalWidth - circleRadius; // Align right edge with margin
+                for (let i = 0; i < this.score.lives; i++) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(startX + i * circleSpacing + circleRadius, 10 + fontSize + circleRadius, circleRadius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
 
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
                 this.ctx.textAlign = 'center';
