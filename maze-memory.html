@@ -184,262 +184,293 @@
     </div>
     <script>
         class MazeMemoryGame {
-            constructor() {
-                this.GRID_SIZE = 40;
-                this.BANNER_HEIGHT_PERCENT = 0.11;
-                this.CANVAS_MARGIN_HORIZONTAL = 40;
-                this.CANVAS_MARGIN_VERTICAL = 60;
-                this.MAX_MISSES = 5;
-                this.BULLET_SPEED = 0.2;
-                this.TANK_SPEED = 0.25;
-                this.MIN_GRID_SIZE = 7;
-                this.LEVELS_PER_CYCLE = 3;
+            // Configuration constants
+            CONFIG = {
+                GRID_SIZE: 40,
+                BANNER_HEIGHT_PERCENT: 0.11,
+                CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
+                MAX_MISSES: 5,
+                BULLET_SPEED: 0.2,
+                TANK_SPEED: 0.25,
+                MIN_GRID_SIZE: 7,
+                LEVELS_PER_CYCLE: 3,
+                POWER_UP_DURATION: 10000,
+                POWER_UP_REVEAL_DURATION: 1000,
+                INITIAL_NUMBER_TIMER: 5000,
+                GAME_OVER_DELAY: 3000,
+                LEVEL_CLEAR_DELAY: 2000,
+                CONTROLS_HEIGHT: 200
+            };
 
+
+            // Updated INPUT_MAP and handleInput from previous suggestion
+            INPUT_MAP = {
+                'w': { action: 'moveFar', dir: 'up' },
+                's': { action: 'moveFar', dir: 'down' },
+                'a': { action: 'moveFar', dir: 'left' },
+                'd': { action: 'moveFar', dir: 'right' },
+                'ArrowUp': { action: 'moveOne', dir: 'up' },
+                'ArrowDown': { action: 'moveOne', dir: 'down' },
+                'ArrowLeft': { action: 'moveOne', dir: 'left' },
+                'ArrowRight': { action: 'moveOne', dir: 'right' },
+                ' ': { action: 'shoot' },
+                'x': { action: 'marker' },
+                'm': { action: 'marker' },
+                '?': { action: 'peek' },
+                'p': { action: 'peek' },
+                'up': { action: 'move', dir: 'up' },
+                'down': { action: 'move', dir: 'down' },
+                'left': { action: 'move', dir: 'left' },
+                'right': { action: 'move', dir: 'right' },
+                'shoot': { action: 'shoot' },
+                'marker': { action: 'marker' },
+                'peek': { action: 'peek' }
+            };
+
+            constructor() {
+                this.initializeCanvas();
+                this.initializeGameConstants();
+                this.initializeGameState();
+                this.initializeEventHandlers();
+                this.resetLevel();
+                this.setupInputHandlers();
+                this.gameLoop();
+            }
+
+            initializeCanvas() {
                 this.canvas = document.getElementById('gameCanvas');
                 this.ctx = this.canvas.getContext('2d');
-                this.gridSize = this.GRID_SIZE;
-                this.controlsHeight = 200;
+                this.gridSize = this.CONFIG.GRID_SIZE;
+                this.controlsHeight = this.CONFIG.CONTROLS_HEIGHT;
                 this.topBorderSize = 0;
                 this.updateCanvasSize();
+            }
 
-                this.mazeSize = this.MIN_GRID_SIZE;
+            initializeGameConstants() {
+                this.mazeSize = this.CONFIG.MIN_GRID_SIZE;
                 this.level = 0;
                 this.maxTargets = 3;
+            }
+
+            initializeGameState() {
                 this.maze = [];
-                this.tank = {
-                    x: 0, y: 0, dir: 'right', currentAngle: 0, targetAngle: 0, rotationStart: null,
-                    desiredX: 0, desiredY: 0, desiredDir: 'right', ignoreCollisions: false // Add this
-                };
+                this.tank = this.createTank(0, 0);
                 this.targets = [];
-
                 this.bullets = [];
-                this.powerUpTimer = 0; // Reset power-up timer
-
+                this.powerUp = null;
+                this.powerUpTimer = 0;
                 this.currentTarget = 1;
                 this.showNumbers = true;
-                this.numberTimer = 5000;
+                this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.showNextTargetTimer = 0;
                 this.keysPressed = {};
-                this.score = { hits: 0, lives: this.MAX_MISSES, total: 0 }; // Add total score
-                this.gameOverDelay = 0; // For 3-second restart delay
+                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0 };
+                this.gameOverDelay = 0;
                 this.marker = null;
                 this.gameOver = false;
                 this.levelCleared = false;
                 this.targetColors = [];
-                this.colorIndex = 0; // Track current position in color cycle
+                this.colorIndex = 0;
                 this.lastButtonDirection = null;
-                this.showAllTimer = 0; // For "hit" event
-                this.showNextTimer = 0; // For "peek" event
+                this.showAllTimer = 0;
+                this.showNextTimer = 0;
+            }
 
-                this.POWER_UP_DURATION = 10000; // 10 seconds
-                this.POWER_UP_REVEAL_DURATION = 1000; // 1 second
-                this.powerUp = null; // Position of power-up
-                this.powerUpTimer = 0; // Time remaining with power-up
+            createTank(x, y) {
+                return {
+                    x, y,
+                    dir: 'right',
+                    currentAngle: 0,
+                    targetAngle: 0,
+                    rotationStart: null,
+                    desiredX: x,
+                    desiredY: y,
+                    desiredDir: 'right',
+                    ignoreCollisions: false
+                };
+            }
 
+            initializeEventHandlers() {
                 this.eventHandlers = {
                     hit: () => {
                         this.score.hits++;
                         this.currentTarget++;
-                        this.showAllTimer = this.powerUpTimer > 0 ? this.POWER_UP_REVEAL_DURATION : 0;
-                    }, // Show all targets conditionally
+                        this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
+                    },
                     miss: (target) => {
                         if (target) target.flashTimer = 1000;
-                        this.showAllTimer = this.powerUpTimer > 0 ? this.POWER_UP_REVEAL_DURATION : 0;
+                        this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
                         this.score.lives--;
-                    },
-                    peek: () => { this.showNextTimer = 1000; this.score.misses++; }, // Show next target, +1 miss
+                    }
                 };
-
-                this.resetLevel();
-                this.setupEventListeners();
-                this.setupControlListeners();
-                this.gameLoop();
             }
 
-            setupControlListeners() {
-                const navigationButtons = ['up', 'down', 'left', 'right'];
-                const keyMap = {
-                    'up': 'w',
-                    'down': 's',
-                    'left': 'a',
-                    'right': 'd',
-                    'shoot': ' ',
-                    'marker': 'x',
-                    'peek': '?'
-                };
+            resetLevel() {
+                if (this.gameOver) return;
+                const levelCycle = this.level % this.CONFIG.LEVELS_PER_CYCLE; // Fixed here
+                const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE); // Fixed here
+                this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * 2;
+                this.updateCanvasSize();
+                this.maxTargets = 3 + Math.floor(this.level / 3);
+                this.maze = this.generateMaze();
+                const startPos = this.getRandomOpenPosition();
 
-                // Handle navigation buttons
-                navigationButtons.forEach(id => {
-                    const button = document.getElementById(id);
-                    const handleClick = (e) => {
-                        e.preventDefault();
-                        const direction = id; // id directly indicates direction: 'up', 'down', 'left', 'right'
-
-                        if (this.tank.dir !== direction) {
-                            // First press or different direction: Orient tank only
-                            this.tank.dir = direction;
-                            this.tank.desiredDir = direction;
-                            this.tank.rotationStart = performance.now();
-                            switch (direction) {
-                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                                case 'left': this.tank.targetAngle = Math.PI; break;
-                                case 'right': this.tank.targetAngle = 0; break;
-                            }
-                            this.lastButtonDirection = direction;
-                        } else {
-                            // Second press in same direction: Move far
-                            const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), direction);
-                            this.tank.desiredX = pos.x;
-                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                            this.tank.desiredDir = direction;
-                            this.tank.ignoreCollisions = false;
-                        }
-                    };
-
-                    // Register click handlers for both touch and mouse
-                    button.addEventListener('touchstart', handleClick);
-                    button.addEventListener('mousedown', handleClick);
-                    // Reset direction tracking on release
-                    button.addEventListener('touchend', (e) => e.preventDefault());
-                    button.addEventListener('mouseup', (e) => e.preventDefault());
-                });
-
-                // Handle non-navigation buttons
-                ['shoot', 'marker', 'peek'].forEach(id => {
-                    const button = document.getElementById(id);
-                    const key = keyMap[id];
-                    button.addEventListener('touchstart', this.handleStart.bind(this, key));
-                    button.addEventListener('mousedown', this.handleStart.bind(this, key));
-                    button.addEventListener('touchend', this.handleEnd.bind(this, key));
-                    button.addEventListener('mouseup', this.handleEnd.bind(this, key));
-                });
+                this.tank = this.createTank(startPos.x, startPos.y);
+                this.targets = [];
+                this.assignTargetColors();
+                for (let i = 1; i <= this.maxTargets; i++) {
+                    let pos;
+                    do {
+                        pos = this.getRandomOpenPosition();
+                    } while (this.targets.some(t => t.x === pos.x && t.y === pos.y) || (pos.x === this.tank.x && pos.y === this.tank.y));
+                    this.targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
+                }
+                this.bullets = [];
+                this.powerUp = this.getRandomOpenPosition();
+                this.currentTarget = 1;
+                this.showNumbers = true;
+                this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
+                this.marker = null;
+                this.score.lives = this.CONFIG.MAX_MISSES;
+                this.levelCleared = false;
+                if (this.level > 0) {
+                    this.score.total += this.score.hits * this.score.lives;
+                }
+                this.level++;
             }
 
-            handleStart(key, e) {
-                e.preventDefault();
-                const event = new KeyboardEvent('keydown', { key });
-                document.dispatchEvent(event);
-            }
-
-            handleEnd(key, e) {
-                e.preventDefault();
-                const keyupEvent = new KeyboardEvent('keyup', { key });
-                document.dispatchEvent(keyupEvent);
-            }
-
-            setupEventListeners() {
-                const CONTROL_KEYS = ['W', 'S', 'A', 'D', 'ARROWUP', 'ARROWDOWN', 'ARROWLEFT', 'ARROWRIGHT', ' ', 'M', 'P', '?'];
-
-                document.addEventListener('keydown', e => {
+            setupInputHandlers() {
+                document.addEventListener('keydown', (e) => {
                     if (this.gameOver || this.levelCleared) return;
                     if (this.keysPressed[e.key]) return;
                     this.keysPressed[e.key] = true;
 
-                    e.preventDefault(); // Always call preventDefault for keydown
-
-                    const key = e.key.toUpperCase();
-
-                    const keyActions = {
-                        'W': { dir: 'up', moveFar: true, moveOne: false },
-                        'S': { dir: 'down', moveFar: true, moveOne: false },
-                        'A': { dir: 'left', moveFar: true, moveOne: false },
-                        'D': { dir: 'right', moveFar: true, moveOne: false },
-                        'ARROWUP': { dir: 'up', moveFar: false, moveOne: true },
-                        'ARROWDOWN': { dir: 'down', moveFar: false, moveOne: true },
-                        'ARROWLEFT': { dir: 'left', moveFar: false, moveOne: true },
-                        'ARROWRIGHT': { dir: 'right', moveFar: false, moveOne: true }
-                    };
-
-                    if (this.showNumbers && this.numberTimer > 0 && CONTROL_KEYS.includes(key) && key !== ' ') {
-                        this.showNumbers = false;
-                        this.numberTimer = 0;
-                        return;
+                    const input = this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
+                    if (input) {
+                        e.preventDefault();
+                        if (this.showNumbers && this.numberTimer > 0 && input.action !== 'shoot') {
+                            this.showNumbers = false;
+                            this.numberTimer = 0;
+                            return;
+                        }
+                        this.handleInput(input);
                     }
+                });
 
-                    let newX = this.tank.x;
-                    let newY = this.tank.y;
-                    let newDir = this.tank.dir;
-                    let isMoveFar = false;
+                document.addEventListener('keyup', (e) => {
+                    this.keysPressed[e.key] = false;
+                });
 
-                    const handleDirectionKey = (direction, dx, dy, moveFar, moveOne) => {
-                        const newDir = direction;
-                        let newX = this.tank.x;
-                        let newY = this.tank.y;
+                Object.keys(this.INPUT_MAP).forEach(id => {
+                    const button = document.getElementById(id);
+                    if (button) {
+                        const handleStart = (e) => {
+                            if (this.gameOver || this.levelCleared) return;
+                            e.preventDefault();
+                            if (this.showNumbers && this.numberTimer > 0 && this.INPUT_MAP[id].action !== 'shoot') {
+                                this.showNumbers = false;
+                                this.numberTimer = 0;
+                                return;
+                            }
+                            this.handleInput(this.INPUT_MAP[id]);
+                        };
+                        button.addEventListener('mousedown', handleStart);
+                        button.addEventListener('touchstart', handleStart);
+                        button.addEventListener('mouseup', (e) => e.preventDefault());
+                        button.addEventListener('touchend', (e) => e.preventDefault());
+                    }
+                });
+            }
 
-                        if (moveFar) {
-                            const pos = this.moveFar(this.tank.x, this.tank.y, newDir);
-                            this.tank.desiredX = pos.x;
-                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
-                            this.tank.desiredDir = newDir;
-                            this.tank.ignoreCollisions = false;
-                        } else if (moveOne && this.tank.dir === newDir) {
-                            newX += dx;
-                            newY += dy;
-                            if (newY >= 0 && newY < this.mazeSize && newX >= 0 && newX < this.mazeSize && this.maze[newY][newX] === 0) {
+            handleInput(input) {
+                switch (input.action) {
+                    case 'moveFar': {
+                        const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), input.dir);
+                        this.tank.desiredX = pos.x;
+                        this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                        this.tank.desiredDir = input.dir;
+                        this.tank.ignoreCollisions = false;
+                        this.updateTankDirection(input.dir);
+                        break;
+                    }
+                    case 'moveOne': {
+                        if (this.tank.dir === input.dir) {
+                            const dx = input.dir === 'right' ? 1 : input.dir === 'left' ? -1 : 0;
+                            const dy = input.dir === 'down' ? 1 : input.dir === 'up' ? -1 : 0;
+                            const newX = this.tank.x + dx;
+                            const newY = this.tank.y + dy;
+                            if (
+                                newX >= 0 && newX < this.mazeSize &&
+                                newY >= 0 && newY < this.mazeSize &&
+                                this.maze[Math.floor(newY)][Math.floor(newX)] === 0
+                            ) {
                                 this.tank.desiredX = newX;
                                 this.tank.desiredY = newY;
                                 this.tank.ignoreCollisions = false;
                             }
                         }
-
-                        if (newDir !== this.tank.dir) {
-                            this.tank.dir = newDir;
-                            this.tank.desiredDir = newDir;
-                            this.tank.rotationStart = performance.now();
-                            switch (newDir) {
-                                case 'up': this.tank.targetAngle = -Math.PI / 2; break;
-                                case 'down': this.tank.targetAngle = Math.PI / 2; break;
-                                case 'left': this.tank.targetAngle = Math.PI; break;
-                                case 'right': this.tank.targetAngle = 0; break;
-                            }
-                        }
-                    };
-
-                    const action = keyActions[key];
-                    if (action) {
-                        handleDirectionKey(action.dir,
-                            action.dir === 'right' ? 1 : action.dir === 'left' ? -1 : 0,
-                            action.dir === 'down' ? 1 : action.dir === 'up' ? -1 : 0,
-                            action.moveFar,
-                            action.moveOne);
-                    } else {
-                        switch (key) {
-                            case ' ':
-                                let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
-                                if (this.checkBulletCollision(bullet)) this.bullets = this.bullets.filter(b => b !== bullet);
-                                else this.bullets.push(bullet);
-                                return;
-                            case 'X':
-                            case 'M':
-                                if (!this.marker) {
-                                    this.marker = { x: this.tank.x, y: this.tank.y };
-                                } else {
-                                    this.tank.desiredX = this.marker.x;
-                                    this.tank.desiredY = this.marker.y;
-                                    this.tank.ignoreCollisions = true;
-                                    this.marker = null;
-                                }
-                                return;
-                            case '?':
-                            case 'P':
-                                this.eventHandlers.peek();
-                                return;
-                        }
+                        this.updateTankDirection(input.dir);
+                        break;
                     }
-                });
+                    case 'move': {
+                        if (this.tank.dir !== input.dir) {
+                            this.updateTankDirection(input.dir);
+                            this.lastButtonDirection = input.dir;
+                        } else if (this.lastButtonDirection === input.dir) {
+                            const pos = this.moveFar(Math.round(this.tank.x), Math.round(this.tank.y), input.dir);
+                            this.tank.desiredX = pos.x;
+                            this.tank.desiredY = pos.y < this.mazeSize - 1 ? pos.y : this.tank.y;
+                            this.tank.desiredDir = input.dir;
+                            this.tank.ignoreCollisions = false;
+                        }
+                        break;
+                    }
+                    case 'shoot': {
+                        let bullet = { x: this.tank.x + 0.5, y: this.tank.y + 0.5, dir: this.tank.dir };
+                        if (!this.checkBulletCollision(bullet)) {
+                            this.bullets.push(bullet);
+                        }
+                        break;
+                    }
+                    case 'marker': {
+                        if (!this.marker) {
+                            this.marker = { x: Math.round(this.tank.x), y: Math.round(this.tank.y) };
+                        } else {
+                            this.tank.desiredX = this.marker.x;
+                            this.tank.desiredY = this.marker.y;
+                            this.tank.ignoreCollisions = true;
+                            this.marker = null;
+                        }
+                        break;
+                    }
+                    case 'peek': {
+                        this.showNextTimer = 1000; // Moved from eventHandlers.peek
+                        this.score.lives--;       // Adjusted to decrement lives, assuming 'misses' was a typo
+                        break;
+                    }
+                }
+            }
 
-                document.addEventListener('keyup', e => {
-                    this.keysPressed[e.key] = false;
-                });
+            updateTankDirection(newDir) {
+                if (this.tank.dir !== newDir) {
+                    this.tank.dir = newDir;
+                    this.tank.desiredDir = newDir;
+                    this.tank.rotationStart = performance.now();
+                    switch (newDir) {
+                        case 'up': this.tank.targetAngle = -Math.PI / 2; break;
+                        case 'down': this.tank.targetAngle = Math.PI / 2; break;
+                        case 'left': this.tank.targetAngle = Math.PI; break;
+                        case 'right': this.tank.targetAngle = 0; break;
+                    }
+                }
             }
 
             updateCanvasSize() {
-                const windowWidth = window.innerWidth - this.CANVAS_MARGIN_HORIZONTAL;
-                const windowHeight = window.innerHeight - this.CANVAS_MARGIN_VERTICAL - this.controlsHeight; // Account for controls
+                const windowWidth = window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL; // Fixed
+                const windowHeight = window.innerHeight - this.CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight; // Fixed
                 const maxSize = Math.min(windowWidth, windowHeight); // Limit by minimum of width and adjusted height
                 this.canvas.width = maxSize;
-                this.bannerHeight = maxSize * this.BANNER_HEIGHT_PERCENT;
+                this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT; // Fixed
                 this.canvas.height = maxSize + this.bannerHeight;
                 this.gridSize = Math.floor(maxSize / this.mazeSize);
                 this.topBorderSize = this.gridSize; // Set top border to match one row
@@ -521,50 +552,6 @@
                 for (let i = 1; i <= this.maxTargets; i++) {
                     this.targetColors[i - 1] = this.getRandomColor();
                 }
-            }
-
-            resetLevel() {
-                if (this.gameOver) return;
-                const levelCycle = this.level % this.LEVELS_PER_CYCLE;
-                const difficulty = Math.floor(this.level / this.LEVELS_PER_CYCLE);
-                this.mazeSize = this.MIN_GRID_SIZE + (difficulty + levelCycle) * 2;
-                this.updateCanvasSize();
-                this.maxTargets = 3 + Math.floor(this.level / 3);
-                this.maze = this.generateMaze();
-                const startPos = this.getRandomOpenPosition();
-
-                this.tank = {
-                    x: startPos.x,
-                    y: startPos.y,
-                    dir: 'right',
-                    currentAngle: 0,
-                    targetAngle: 0,
-                    rotationStart: null,
-                    desiredX: startPos.x,
-                    desiredY: startPos.y,
-                    desiredDir: 'right'
-                };
-                this.targets = [];
-                this.assignTargetColors();
-                for (let i = 1; i <= this.maxTargets; i++) {
-                    let pos;
-                    do {
-                        pos = this.getRandomOpenPosition();
-                    } while (this.targets.some(t => t.x === pos.x && t.y === pos.y) || (pos.x === this.tank.x && pos.y === this.tank.y));
-                    this.targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
-                }
-                this.bullets = [];
-                this.powerUp = this.getRandomOpenPosition(); // Spawn power-up
-                this.currentTarget = 1;
-                this.showNumbers = true;
-                this.numberTimer = 5000;
-                this.marker = null;
-                this.score.lives = this.MAX_MISSES; // Reset lives to 5
-                this.levelCleared = false;
-                if (this.level > 0) { // Only compute score after first level
-                    this.score.total += this.score.hits * this.score.lives;
-                }
-                this.level++;
             }
 
             moveFar(x, y, dir) {
@@ -655,15 +642,13 @@
                     return;
                 }
 
-                // Check for power-up collection
                 const tankGridX = Math.floor(this.tank.x);
                 const tankGridY = Math.floor(this.tank.y);
                 if (this.powerUp && tankGridX === this.powerUp.x && tankGridY === this.powerUp.y) {
-                    this.powerUpTimer = this.POWER_UP_DURATION; // Activate power-up
-                    this.powerUp = null; // Remove power-up
+                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION; // Fixed here
+                    this.powerUp = null;
                 }
 
-                // Update power-up timers
                 if (this.powerUpTimer > 0) {
                     this.powerUpTimer -= 16;
                     if (this.powerUpTimer < 0) this.powerUpTimer = 0;
@@ -679,25 +664,22 @@
                     if (this.showNextTimer < 0) this.showNextTimer = 0;
                 }
 
-                // Smooth tank movement with conditional collision detection
                 if (this.tank.x !== this.tank.desiredX || this.tank.y !== this.tank.desiredY) {
                     const dx = this.tank.desiredX - this.tank.x;
                     const dy = this.tank.desiredY - this.tank.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance > this.TANK_SPEED) {
-                        const moveX = (dx / distance) * this.TANK_SPEED;
-                        const moveY = (dy / distance) * this.TANK_SPEED;
+                    if (distance > this.CONFIG.TANK_SPEED) { // Fixed here
+                        const moveX = (dx / distance) * this.CONFIG.TANK_SPEED; // Fixed here
+                        const moveY = (dy / distance) * this.CONFIG.TANK_SPEED; // Fixed here
                         const nextX = this.tank.x + moveX;
                         const nextY = this.tank.y + moveY;
                         const gridX = Math.floor(nextX);
                         const gridY = Math.floor(nextY);
 
                         if (this.tank.ignoreCollisions) {
-                            // Move through walls when ignoreCollisions is true
                             this.tank.x = nextX;
                             this.tank.y = nextY;
                         } else {
-                            // Check collision when ignoreCollisions is false
                             if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
                                 this.tank.x = nextX;
                                 this.tank.y = nextY;
@@ -711,7 +693,7 @@
                     } else {
                         this.tank.x = this.tank.desiredX;
                         this.tank.y = this.tank.desiredY;
-                        this.tank.ignoreCollisions = false; // Reset flag when destination reached
+                        this.tank.ignoreCollisions = false;
                     }
                 }
 
@@ -736,20 +718,18 @@
 
                 this.bullets = this.bullets.filter(b => {
                     switch (b.dir) {
-                        case 'up': b.y -= this.BULLET_SPEED; break;
-                        case 'down': b.y += this.BULLET_SPEED; break;
-                        case 'left': b.x -= this.BULLET_SPEED; break;
-                        case 'right': b.x += this.BULLET_SPEED; break;
+                        case 'up': b.y -= this.CONFIG.BULLET_SPEED; break; // Fixed here
+                        case 'down': b.y += this.CONFIG.BULLET_SPEED; break; // Fixed here
+                        case 'left': b.x -= this.CONFIG.BULLET_SPEED; break; // Fixed here
+                        case 'right': b.x += this.CONFIG.BULLET_SPEED; break; // Fixed here
                     }
-                    const gridX = Math.floor(b.x);
-                    const gridY = Math.floor(b.y);
                     return !this.checkBulletCollision(b);
                 });
 
                 if (this.score.lives <= 0) {
                     if (!this.gameOver) {
                         this.gameOver = true;
-                        this.gameOverDelay = 3000; // 3-second delay
+                        this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY; // Fixed here
                     }
                     this.gameOverDelay -= 16;
                     if (this.gameOverDelay <= 0) {
@@ -758,7 +738,7 @@
                     }
                 } else if (this.targets.every(t => t.hit)) {
                     this.levelCleared = true;
-                    setTimeout(() => this.resetLevel(), 2000);
+                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY); // Fixed here
                 }
             }
 
