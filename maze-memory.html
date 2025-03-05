@@ -123,23 +123,33 @@
         }
 
         .control-btn {
-            width: 60px;
-            height: 60px;
-            font-size: 20px;
+            width: 80px;
+            /* Larger buttons */
+            height: 80px;
+            font-size: 24px;
             font-family: Arial, sans-serif;
             background-color: #ccc;
             border: 2px solid #333;
-            border-radius: 5px;
+            border-radius: 10px;
+            /* Rounder corners */
             cursor: pointer;
             touch-action: none;
+            margin: 5px;
+            /* Add spacing */
         }
 
         #shoot {
-            width: 70px;
-            height: 70px;
-            font-size: 24px;
+            width: 90px;
+            height: 90px;
+            font-size: 28px;
             background-color: #f00;
             color: white;
+            border-radius: 10px;
+        }
+
+        #controls {
+            gap: 15px;
+            /* More spacing between control groups */
         }
 
         @keyframes fadeOut {
@@ -556,7 +566,8 @@
                 this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT;
                 this.canvas.height = maxSize + this.bannerHeight;
                 this.gridSize = Math.floor(maxSize / this.mazeSize);
-                this.topBorderSize = this.gridSize;
+                this.topBorderSize = this.bannerHeight; // Align grid directly below scoreboard
+                this.canvas.dataset.bannerHeight = this.bannerHeight; // Keep for potential separator
             }
 
             generateMaze() {
@@ -736,14 +747,16 @@
                 }
 
                 if (!this.gameOver) {
-                    const tankDelta = this.tank.targetPos.subtract(this.tank.pos);
-                    const tankDistance = tankDelta.distanceTo(new Vector2D(0, 0));
-                    if (tankDistance > this.CONFIG.TANK_SPEED) {
-                        const move = tankDelta.multiply(this.CONFIG.TANK_SPEED / tankDistance);
+                    // Animate tank to targetPos at constant TANK_SPEED
+                    if (!this.tank.pos.equals(this.tank.targetPos)) {
+                        const dir = this.tank.targetPos.subtract(this.tank.pos);
+                        const distance = dir.distanceTo(new Vector2D(0, 0));
+                        const move = dir.multiply(this.CONFIG.TANK_SPEED / distance);
                         this.tank.pos = this.tank.pos.add(move);
-                    } else {
-                        this.tank.pos = this.tank.targetPos.copy();
-                        this.tank.ignoreCollisions = false;
+                        if (distance <= this.CONFIG.TANK_SPEED) {
+                            this.tank.pos = this.tank.targetPos.copy();
+                            this.tank.ignoreCollisions = false;
+                        }
                     }
 
                     if (this.tank.rotationStart !== null) {
@@ -763,11 +776,9 @@
                                 const dx = this.chaosMonster.target.pos.x - this.chaosMonster.pos.x;
                                 const dy = this.chaosMonster.target.pos.y - this.chaosMonster.pos.y;
                                 const distance = Math.sqrt(dx * dx + dy * dy);
-                                if (distance > this.chaosMonster.speed) {
-                                    const moveX = (dx / distance) * this.chaosMonster.speed;
-                                    const moveY = (dy / distance) * this.chaosMonster.speed;
-                                    this.chaosMonster.pos.x += moveX;
-                                    this.chaosMonster.pos.y += moveY;
+                                if (distance > 0.001) {
+                                    const move = new Vector2D(dx, dy).multiply(Math.min(this.chaosMonster.speed, distance) / distance);
+                                    this.chaosMonster.pos = this.chaosMonster.pos.add(move);
                                 } else {
                                     this.chaosMonster.holdingTarget = this.chaosMonster.target;
                                     this.chaosMonster.target = null;
@@ -779,11 +790,9 @@
                             const dx = this.chaosMonster.origin.x - this.chaosMonster.pos.x;
                             const dy = this.chaosMonster.origin.y - this.chaosMonster.pos.y;
                             const distance = Math.sqrt(dx * dx + dy * dy);
-                            if (distance > this.chaosMonster.speed) {
-                                const moveX = (dx / distance) * this.chaosMonster.speed;
-                                const moveY = (dy / distance) * this.chaosMonster.speed;
-                                this.chaosMonster.pos.x += moveX;
-                                this.chaosMonster.pos.y += moveY;
+                            if (distance > 0.001) {
+                                const move = new Vector2D(dx, dy).multiply(Math.min(this.chaosMonster.speed, distance) / distance);
+                                this.chaosMonster.pos = this.chaosMonster.pos.add(move);
                             } else {
                                 this.chaosMonster.holdingTarget.pos = this.chaosMonster.origin.copy();
                                 this.chaosMonster.holdingTarget = null;
@@ -791,13 +800,12 @@
                         }
                     }
 
-                    // Animate power-up reveal
                     this.powerUps.forEach(p => {
                         if (p.revealStart !== null) {
                             const elapsed = performance.now() - p.revealStart;
-                            const duration = 1000; // 1-second fade-in
+                            const duration = 1000;
                             if (elapsed < duration) {
-                                p.opacity = elapsed / duration;
+                                p.opacity = Math.min(1, elapsed / duration);
                             } else {
                                 p.opacity = 1;
                                 p.revealStart = null;
@@ -951,38 +959,42 @@
                 const fontSize = Math.floor(this.bannerHeight / this.CONFIG.SCOREBOARD_FONT_SCALE);
                 this.ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
                 this.ctx.fillRect(0, 0, this.canvas.width, this.bannerHeight);
+                this.ctx.shadowBlur = 5;
+                this.ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                this.ctx.shadowOffsetX = 2;
+                this.ctx.shadowOffsetY = 2;
                 this.ctx.font = `${fontSize}px Arial`;
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
-                this.ctx.textBaseline = 'top';
+                this.ctx.textBaseline = 'middle'; // Center vertically for better alignment
 
-                this.ctx.textAlign = 'left';
-                this.ctx.fillText('Hits', 10, 10);
-                this.ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
+                // Center "Hits" and value
                 this.ctx.textAlign = 'center';
-                this.ctx.fillText(this.score.hits, 60, 10 + fontSize);
+                this.ctx.fillText('Hits', this.canvas.width * 0.15, this.bannerHeight / 2 - fontSize / 2);
+                this.ctx.fillStyle = isDarkMode ? '#ccc' : 'black';
+                this.ctx.fillText(this.score.hits, this.canvas.width * 0.15, this.bannerHeight / 2 + fontSize / 2);
 
+                // Center "Lives" and circles
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
-                this.ctx.textAlign = 'right';
-                this.ctx.fillText('Lives', this.canvas.width - 10, 10);
+                this.ctx.fillText('Lives', this.canvas.width * 0.85, this.bannerHeight / 2 - fontSize / 2);
                 this.ctx.fillStyle = 'green';
                 const circleRadius = fontSize / 4;
-                const circleSpacing = circleRadius * 3;
+                const circleSpacing = circleRadius * 2; // Tighter spacing for desktop
                 const totalWidth = (this.score.lives - 1) * circleSpacing + 2 * circleRadius;
-                const startX = this.canvas.width - 10 - totalWidth - circleRadius;
+                const startX = this.canvas.width * 0.85 - totalWidth / 2; // Center horizontally
                 for (let i = 0; i < this.score.lives; i++) {
                     this.ctx.beginPath();
-                    this.ctx.arc(startX + i * circleSpacing + circleRadius, 10 + fontSize + circleRadius, circleRadius, 0, Math.PI * 2);
+                    this.ctx.arc(startX + i * circleSpacing + circleRadius, this.bannerHeight / 2 + fontSize / 2, circleRadius, 0, Math.PI * 2);
                     this.ctx.fill();
                 }
 
+                // Center "Level" and "Score"
                 this.ctx.fillStyle = isDarkMode ? '#fff' : 'black';
-                this.ctx.textAlign = 'center';
-                this.ctx.fillText(`Level: ${this.level}`, this.canvas.width / 2, 10);
+                this.ctx.fillText(`Level: ${this.level}`, this.canvas.width / 2, this.bannerHeight / 2 - fontSize / 2);
                 if (this.showNumbers && this.numberTimer > 0) {
                     const countdown = Math.ceil(this.numberTimer / 1000);
-                    this.ctx.fillText(countdown, this.canvas.width / 2, 10 + fontSize);
+                    this.ctx.fillText(countdown, this.canvas.width / 2, this.bannerHeight / 2 + fontSize / 2);
                 } else {
-                    this.ctx.fillText(`Score: ${this.score.total} (Moves: ${this.score.moves})`, this.canvas.width / 2, 10 + fontSize);
+                    this.ctx.fillText(`Score: ${this.score.total} (Moves: ${this.score.moves})`, this.canvas.width / 2, this.bannerHeight / 2 + fontSize / 2);
                 }
             }
 
