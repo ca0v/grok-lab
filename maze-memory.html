@@ -246,6 +246,7 @@
                 TANK_SPEED: 0.1, // For animation between cells
                 CHAOS_MONSTER_SPEED: 0.2,
                 MIN_GRID_SIZE: 7,
+                MAX_GRID_SIZE: 15,
                 LEVELS_PER_CYCLE: 3,
                 POWER_UP_DURATION: 10000,
                 POWER_UP_REVEAL_DURATION: 1000,
@@ -384,7 +385,7 @@
 
                 const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE; // Adjust for 1-based levels
                 const difficulty = Math.floor((this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE);
-                this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT;
+                this.mazeSize = Math.min(this.CONFIG.MAX_GRID_SIZE, this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT);
                 this.updateCanvasSize();
 
                 this.maze = this.generateMaze();
