@@ -254,6 +254,7 @@
                 this.initializeEventHandlers();
                 this.resetLevel();
                 this.setupInputHandlers();
+                window.addEventListener('resize', () => this.updateCanvasSize());
                 this.gameLoop();
             }
 
@@ -329,7 +330,7 @@
                 const levelCycle = this.level % this.CONFIG.LEVELS_PER_CYCLE;
                 const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE);
                 this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT;
-                this.updateCanvasSize()
+                this.updateCanvasSize();
                 this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor(this.level / this.CONFIG.TARGETS_PER_LEVEL);
 
                 this.maze = this.generateMaze();
@@ -688,26 +689,40 @@
                     const dx = this.tank.desiredX - this.tank.x;
                     const dy = this.tank.desiredY - this.tank.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
-                    if (distance > this.CONFIG.TANK_SPEED) { // Fixed here
-                        const moveX = (dx / distance) * this.CONFIG.TANK_SPEED; // Fixed here
-                        const moveY = (dy / distance) * this.CONFIG.TANK_SPEED; // Fixed here
+                    if (distance > this.CONFIG.TANK_SPEED && distance > 0) {
+                        const moveX = (dx / distance) * this.CONFIG.TANK_SPEED;
+                        const moveY = (dy / distance) * this.CONFIG.TANK_SPEED;
                         const nextX = this.tank.x + moveX;
                         const nextY = this.tank.y + moveY;
-                        const gridX = Math.floor(nextX);
-                        const gridY = Math.floor(nextY);
+                        const startGridX = Math.floor(this.tank.x);
+                        const startGridY = Math.floor(this.tank.y);
+                        const endGridX = Math.floor(nextX);
+                        const endGridY = Math.floor(nextY);
 
                         if (this.tank.ignoreCollisions) {
                             this.tank.x = nextX;
                             this.tank.y = nextY;
                         } else {
-                            if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
+                            // Check if moving to a new grid cell hits a wall
+                            if (startGridX !== endGridX || startGridY !== endGridY) {
+                                if (endGridX >= 0 && endGridX < this.mazeSize && endGridY >= 0 && endGridY < this.mazeSize && this.maze[endGridY][endGridX] === 0) {
+                                    this.tank.x = nextX;
+                                    this.tank.y = nextY;
+                                } else {
+                                    // Stop at the wall boundary
+                                    if (startGridX !== endGridX) {
+                                        this.tank.x = endGridX > startGridX ? startGridX + 1 - 0.001 : startGridX - 0.001;
+                                    }
+                                    if (startGridY !== endGridY) {
+                                        this.tank.y = endGridY > startGridY ? startGridY + 1 - 0.001 : startGridY - 0.001;
+                                    }
+                                    this.tank.desiredX = this.tank.x;
+                                    this.tank.desiredY = this.tank.y;
+                                }
+                            } else {
+                                // Within same cell, safe to move
                                 this.tank.x = nextX;
                                 this.tank.y = nextY;
-                            } else {
-                                this.tank.x = Math.round(this.tank.x);
-                                this.tank.y = Math.round(this.tank.y);
-                                this.tank.desiredX = this.tank.x;
-                                this.tank.desiredY = this.tank.y;
                             }
                         }
                     } else {
@@ -737,10 +752,10 @@
 
                 this.bullets = this.bullets.filter(b => {
                     switch (b.dir) {
-                        case 'up': b.y -= this.CONFIG.BULLET_SPEED; break; // Fixed here
-                        case 'down': b.y += this.CONFIG.BULLET_SPEED; break; // Fixed here
-                        case 'left': b.x -= this.CONFIG.BULLET_SPEED; break; // Fixed here
-                        case 'right': b.x += this.CONFIG.BULLET_SPEED; break; // Fixed here
+                        case 'up': b.y -= this.CONFIG.BULLET_SPEED; break;
+                        case 'down': b.y += this.CONFIG.BULLET_SPEED; break;
+                        case 'left': b.x -= this.CONFIG.BULLET_SPEED; break;
+                        case 'right': b.x += this.CONFIG.BULLET_SPEED; break;
                     }
                     return !this.checkBulletCollision(b);
                 });
@@ -748,7 +763,7 @@
                 if (this.score.lives <= 0) {
                     if (!this.gameOver) {
                         this.gameOver = true;
-                        this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY; // Fixed here
+                        this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY;
                     }
                     this.gameOverDelay -= this.CONFIG.FRAME_DELTA;
                     if (this.gameOverDelay <= 0) {
@@ -757,7 +772,7 @@
                     }
                 } else if (this.targets.every(t => t.hit)) {
                     this.levelCleared = true;
-                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY); // Fixed here
+                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY);
                 }
             }
 
