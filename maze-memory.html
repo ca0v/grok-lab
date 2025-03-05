@@ -301,11 +301,12 @@
             };
 
             constructor() {
-                this.initializeGameConstants();
                 this.initializeCanvas();
                 this.initializeGameState();
+                this.loadGameState(); // Load state first
+                this.initializeGameConstants(); // Then set constants
                 this.initializeEventHandlers();
-                this.resetLevel();
+                this.resetLevel(true); // Start with current level
                 this.setupInputHandlers();
                 window.addEventListener('resize', () => this.updateCanvasSize());
                 this.gameLoop();
@@ -313,7 +314,7 @@
 
             initializeGameConstants() {
                 this.mazeSize = this.CONFIG.MIN_GRID_SIZE;
-                this.level = 0;
+                this.level = this.level || 1;
                 this.maxTargets = this.CONFIG.TARGETS_BASE;
             }
 
@@ -340,12 +341,18 @@
                 this.chaosMonster = null;
                 this.targets = [];
                 this.bullets = [];
-                this.powerUps = []; // Now an array
+                this.powerUps = [];
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.keysPressed = {};
-                this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0, moves: 0 };
+                // Only set these if not loaded from storage
+                this.score = this.score || {
+                    hits: 0,
+                    lives: this.CONFIG.MAX_MISSES,
+                    total: 0,
+                    moves: 0
+                };
                 this.gameOverDelay = 0;
                 this.marker = null;
                 this.gameOver = false;
@@ -374,8 +381,9 @@
 
             resetLevel(restartSameLevel = false) {
                 if (this.gameOver && !restartSameLevel) return;
-                const levelCycle = this.level % this.CONFIG.LEVELS_PER_CYCLE;
-                const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE);
+
+                const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE; // Adjust for 1-based levels
+                const difficulty = Math.floor((this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE);
                 this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT;
                 this.updateCanvasSize();
 
@@ -393,7 +401,7 @@
                     target: null
                 };
 
-                this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor(this.level / this.CONFIG.TARGETS_PER_LEVEL);
+                this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor((this.level - 1) / this.CONFIG.TARGETS_PER_LEVEL);
                 this.targets = [];
                 this.assignTargetColors();
                 for (let i = 1; i <= this.maxTargets; i++) {
@@ -425,22 +433,33 @@
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
                 this.marker = null;
-                if (this.level === 0) {
+
+                if (this.level === 1 && !localStorage.getItem('tankMemoryMazeState')) {
                     this.score.lives = this.CONFIG.MAX_MISSES;
-                } else if (this.levelCleared) {
+                    this.score.total = 0;
+                    this.score.hits = 0;
+                } else if (this.levelCleared && !restartSameLevel) {
                     this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
-                }
-                if (this.level > 0 && !restartSameLevel) {
                     const moveBonus = Math.max(0, 100 - this.score.moves * 2);
                     this.score.total += this.score.hits * this.score.lives + moveBonus;
+                    this.level++; // Only increment on level clear
                 }
+
                 this.score.moves = 0;
                 this.levelCleared = false;
-                if (!restartSameLevel) this.level++;
+                this.saveGameState();
             }
 
             setupInputHandlers() {
                 document.addEventListener('keydown', (e) => {
+                    if (e.key === 'r' && (this.gameOver || this.levelCleared)) { // Press 'r' to reset progress
+                        this.clearGameState();
+                        this.level = 0;
+                        this.score.total = 0;
+                        this.score.hits = 0;
+                        this.resetLevel();
+                        return;
+                    }
                     if (this.gameOver || this.levelCleared) return;
                     if (this.keysPressed[e.key]) return;
                     this.keysPressed[e.key] = true;
@@ -836,11 +855,12 @@
                     if (this.gameOverDelay <= 0) {
                         this.gameOver = false;
                         this.score.lives = this.CONFIG.MAX_MISSES;
-                        this.resetLevel(true);  // Changed to reset same level
+                        this.resetLevel(true); // Restart same level
+                        this.saveGameState();
                     }
                 } else if (this.targets.every(t => t.hit)) {
                     this.levelCleared = true;
-                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY);
+                    setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY); // Progress to next level
                 }
             }
 
@@ -1014,6 +1034,32 @@
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText('Game Over! Restarting...', this.canvas.width / 2, this.canvas.height / 2);
                 }
+            }
+
+            // Add these methods after initializeGameState()
+            saveGameState() {
+                const gameState = {
+                    level: this.level,
+                    score: {
+                        total: this.score.total,
+                        hits: this.score.hits
+                    }
+                };
+                localStorage.setItem('tankMemoryMazeState', JSON.stringify(gameState));
+            }
+
+            loadGameState() {
+                const savedState = localStorage.getItem('tankMemoryMazeState');
+                if (savedState) {
+                    const gameState = JSON.parse(savedState);
+                    this.level = gameState.level;
+                    this.score.total = gameState.score.total;
+                    this.score.hits = gameState.score.hits;
+                }
+            }
+
+            clearGameState() {
+                localStorage.removeItem('tankMemoryMazeState');
             }
 
             gameLoop() {
