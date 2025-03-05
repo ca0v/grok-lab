@@ -778,7 +778,7 @@
                         }
                     }
 
-                    // Chaos monster movement
+                    // Chaos monster (ghost) movement
                     if (this.chaosMonster) {
                         if (!this.chaosMonster.holdingTarget) {
                             // Move toward target
@@ -786,17 +786,11 @@
                                 const dx = this.chaosMonster.target.x - this.chaosMonster.x;
                                 const dy = this.chaosMonster.target.y - this.chaosMonster.y;
                                 const distance = Math.sqrt(dx * dx + dy * dy);
-                                if (distance > this.chaosMonster.speed) { // Use speed as threshold
+                                if (distance > this.chaosMonster.speed) {
                                     const moveX = (dx / distance) * this.chaosMonster.speed;
                                     const moveY = (dy / distance) * this.chaosMonster.speed;
-                                    const nextX = this.chaosMonster.x + moveX;
-                                    const nextY = this.chaosMonster.y + moveY;
-                                    const gridX = Math.floor(nextX);
-                                    const gridY = Math.floor(nextY);
-                                    if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
-                                        this.chaosMonster.x = nextX;
-                                        this.chaosMonster.y = nextY;
-                                    }
+                                    this.chaosMonster.x += moveX; // No collision check
+                                    this.chaosMonster.y += moveY;
                                 } else {
                                     // Pick up the target
                                     this.chaosMonster.holdingTarget = this.chaosMonster.target;
@@ -827,14 +821,8 @@
                             if (distance > this.chaosMonster.speed) {
                                 const moveX = (dx / distance) * this.chaosMonster.speed;
                                 const moveY = (dy / distance) * this.chaosMonster.speed;
-                                const nextX = this.chaosMonster.x + moveX;
-                                const nextY = this.chaosMonster.y + moveY;
-                                const gridX = Math.floor(nextX);
-                                const gridY = Math.floor(nextY);
-                                if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
-                                    this.chaosMonster.x = nextX;
-                                    this.chaosMonster.y = nextY;
-                                }
+                                this.chaosMonster.x += moveX; // No collision check
+                                this.chaosMonster.y += moveY;
                             } else {
                                 // Drop the target at origin
                                 this.chaosMonster.holdingTarget.x = this.chaosMonster.originX;
@@ -896,7 +884,7 @@
                 if (this.chaosMonster) {
                     this.ctx.save();
                     this.ctx.translate(this.chaosMonster.x * this.gridSize + this.gridSize / 2, this.chaosMonster.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
-                    this.ctx.fillStyle = 'purple'; // Distinct color for chaos monster
+                    this.ctx.fillStyle = 'rgba(128, 0, 128, 0.5)'; // Distinct translucent color for chaos monster
                     this.ctx.beginPath();
                     this.ctx.arc(0, 0, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
                     this.ctx.fill();
