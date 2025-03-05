@@ -186,6 +186,7 @@
         class MazeMemoryGame {
             // Configuration constants
             CONFIG = {
+                MONSTER_SPEED: 0.15,
                 MAZE_WALL_COLOR: 'gray',
                 TANK_COLOR: 'green',
                 BULLET_COLOR: 'red',
@@ -343,7 +344,7 @@
                     y: monsterPos.y,
                     originX: monsterPos.x, // Store initial spawn point
                     originY: monsterPos.y,
-                    speed: 0.05,
+                    speed: this.CONFIG.MONSTER_SPEED,
                     holdingTarget: null,
                     target: null // Will set immediately below
                 };
