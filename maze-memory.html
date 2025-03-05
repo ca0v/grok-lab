@@ -186,12 +186,17 @@
         class MazeMemoryGame {
             // Configuration constants
             CONFIG = {
+                MAZE_WALL_COLOR: 'gray',
+                TANK_COLOR: 'green',
+                BULLET_COLOR: 'red',
+                POWER_UP_COLOR: 'yellow',
+                TARGET_OUTLINE_COLOR: 'black',
                 GRID_SIZE: 40,
                 BANNER_HEIGHT_PERCENT: 0.11,
                 CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
                 MAX_MISSES: 5,
                 BULLET_SPEED: 0.2,
-                TANK_SPEED: 0.25,
+                TANK_SPEED: 0.1,
                 MIN_GRID_SIZE: 7,
                 LEVELS_PER_CYCLE: 3,
                 POWER_UP_DURATION: 10000,
@@ -772,7 +777,7 @@
                 const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-bg').trim();
                 for (let y = 0; y < this.mazeSize; y++) {
                     for (let x = 0; x < this.mazeSize; x++) {
-                        this.ctx.fillStyle = this.maze[y][x] === 1 ? 'gray' : bgColor;
+                        this.ctx.fillStyle = this.maze[y][x] === 1 ? this.CONFIG.MAZE_WALL_COLOR : bgColor;
                         this.ctx.fillRect(x * this.gridSize, y * this.gridSize + this.topBorderSize, this.gridSize, this.gridSize);
                     }
                 }
@@ -782,7 +787,7 @@
                 this.targets.forEach(t => {
                     if (!t.hit) {
                         const targetRadius = (this.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
-                        this.ctx.fillStyle = 'black';
+                        this.ctx.fillStyle = this.CONFIG.TARGET_OUTLINE_COLOR;
                         this.ctx.beginPath();
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius + 2, 0, Math.PI * 2);
                         this.ctx.fill();
@@ -815,7 +820,7 @@
             drawTank() {
                 this.ctx.save();
                 this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
-                this.ctx.fillStyle = 'green';
+                this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
                 this.ctx.beginPath();
                 this.ctx.arc(0, 0, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
                 this.ctx.fill();
@@ -829,7 +834,7 @@
             }
 
             drawBullets() {
-                this.ctx.fillStyle = 'red';
+                this.ctx.fillStyle = this.CONFIG.BULLET_COLOR;
                 this.bullets.forEach(b => {
                     this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize + this.topBorderSize, this.CONFIG.BULLET_SIZE, this.CONFIG.BULLET_SIZE);
                 });
@@ -837,7 +842,7 @@
 
             drawPowerUp() {
                 if (this.powerUp) {
-                    this.ctx.fillStyle = 'yellow';
+                    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR;
                     this.ctx.beginPath();
                     this.ctx.arc(
                         this.powerUp.x * this.gridSize + this.gridSize / 2,
