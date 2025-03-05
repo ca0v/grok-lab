@@ -199,7 +199,22 @@
                 INITIAL_NUMBER_TIMER: 5000,
                 GAME_OVER_DELAY: 3000,
                 LEVEL_CLEAR_DELAY: 2000,
-                CONTROLS_HEIGHT: 200
+                CONTROLS_HEIGHT: 200,
+                BULLET_SIZE: 5,
+                TANK_RADIUS_OFFSET: 7,
+                TARGET_RADIUS_SCALE: 0.8,
+                TARGET_OUTLINE_WIDTH: 2,
+                POWER_UP_RADIUS_SCALE: 0.25,
+                FRAME_DELTA: 16,
+                ROTATION_DURATION: 50,
+                FLASH_DURATION: 1000,
+                MAZE_SIZE_INCREMENT: 2,
+                TARGETS_BASE: 3,
+                TARGETS_PER_LEVEL: 3,
+                SCOREBOARD_FONT_SCALE: 2.5,
+                MESSAGE_FONT_SCALE: 20,
+                MARKER_FONT_SIZE: 30,
+                TANK_FONT_SIZE: 20
             };
 
 
@@ -228,13 +243,19 @@
             };
 
             constructor() {
-                this.initializeCanvas();
                 this.initializeGameConstants();
+                this.initializeCanvas();
                 this.initializeGameState();
                 this.initializeEventHandlers();
                 this.resetLevel();
                 this.setupInputHandlers();
                 this.gameLoop();
+            }
+
+            initializeGameConstants() {
+                this.mazeSize = this.CONFIG.MIN_GRID_SIZE;
+                this.level = 0;
+                this.maxTargets = this.CONFIG.TARGETS_BASE;
             }
 
             initializeCanvas() {
@@ -244,12 +265,6 @@
                 this.controlsHeight = this.CONFIG.CONTROLS_HEIGHT;
                 this.topBorderSize = 0;
                 this.updateCanvasSize();
-            }
-
-            initializeGameConstants() {
-                this.mazeSize = this.CONFIG.MIN_GRID_SIZE;
-                this.level = 0;
-                this.maxTargets = 3;
             }
 
             initializeGameState() {
@@ -262,7 +277,6 @@
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
-                this.showNextTargetTimer = 0;
                 this.keysPressed = {};
                 this.score = { hits: 0, lives: this.CONFIG.MAX_MISSES, total: 0 };
                 this.gameOverDelay = 0;
@@ -298,7 +312,7 @@
                         this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
                     },
                     miss: (target) => {
-                        if (target) target.flashTimer = 1000;
+                        if (target) target.flashTimer = this.CONFIG.FLASH_DURATION;
                         this.showAllTimer = this.powerUpTimer > 0 ? this.CONFIG.POWER_UP_REVEAL_DURATION : 0;
                         this.score.lives--;
                     }
@@ -307,11 +321,12 @@
 
             resetLevel() {
                 if (this.gameOver) return;
-                const levelCycle = this.level % this.CONFIG.LEVELS_PER_CYCLE; // Fixed here
-                const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE); // Fixed here
-                this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * 2;
-                this.updateCanvasSize();
-                this.maxTargets = 3 + Math.floor(this.level / 3);
+                const levelCycle = this.level % this.CONFIG.LEVELS_PER_CYCLE;
+                const difficulty = Math.floor(this.level / this.CONFIG.LEVELS_PER_CYCLE);
+                this.mazeSize = this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT;
+                this.updateCanvasSize()
+                this.maxTargets = this.CONFIG.TARGETS_BASE + Math.floor(this.level / this.CONFIG.TARGETS_PER_LEVEL);
+
                 this.maze = this.generateMaze();
                 const startPos = this.getRandomOpenPosition();
 
@@ -444,8 +459,8 @@
                         break;
                     }
                     case 'peek': {
-                        this.showNextTimer = 1000; // Moved from eventHandlers.peek
-                        this.score.lives--;       // Adjusted to decrement lives, assuming 'misses' was a typo
+                        this.showNextTimer = this.CONFIG.FLASH_DURATION;
+                        this.score.lives--;
                         break;
                     }
                 }
@@ -637,7 +652,7 @@
                 if (this.gameOver || this.levelCleared) return;
 
                 if (this.showNumbers && this.numberTimer > 0) {
-                    this.numberTimer -= 16;
+                    this.numberTimer -= this.CONFIG.FRAME_DELTA;
                     if (this.numberTimer <= 0) this.showNumbers = false;
                     return;
                 }
@@ -645,22 +660,22 @@
                 const tankGridX = Math.floor(this.tank.x);
                 const tankGridY = Math.floor(this.tank.y);
                 if (this.powerUp && tankGridX === this.powerUp.x && tankGridY === this.powerUp.y) {
-                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION; // Fixed here
+                    this.powerUpTimer = this.CONFIG.POWER_UP_DURATION;
                     this.powerUp = null;
                 }
 
                 if (this.powerUpTimer > 0) {
-                    this.powerUpTimer -= 16;
+                    this.powerUpTimer -= this.CONFIG.FRAME_DELTA;
                     if (this.powerUpTimer < 0) this.powerUpTimer = 0;
                 }
 
                 if (this.showAllTimer > 0) {
-                    this.showAllTimer -= 16;
+                    this.showAllTimer -= this.CONFIG.FRAME_DELTA;
                     if (this.showAllTimer < 0) this.showAllTimer = 0;
                 }
 
                 if (this.showNextTimer > 0) {
-                    this.showNextTimer -= 16;
+                    this.showNextTimer -= this.CONFIG.FRAME_DELTA;
                     if (this.showNextTimer < 0) this.showNextTimer = 0;
                 }
 
@@ -699,9 +714,8 @@
 
                 if (this.tank.rotationStart !== null) {
                     const elapsed = performance.now() - this.tank.rotationStart;
-                    const duration = 50;
-                    if (elapsed < duration) {
-                        const progress = elapsed / duration;
+                    if (elapsed < this.CONFIG.ROTATION_DURATION) {
+                        const progress = elapsed / this.CONFIG.ROTATION_DURATION;
                         this.tank.currentAngle += (this.tank.targetAngle - this.tank.currentAngle) * progress;
                     } else {
                         this.tank.currentAngle = this.tank.targetAngle;
@@ -711,7 +725,7 @@
 
                 this.targets.forEach(t => {
                     if (t.flashTimer > 0) {
-                        t.flashTimer -= 16;
+                        t.flashTimer -= this.CONFIG.FRAME_DELTA;
                         if (t.flashTimer < 0) t.flashTimer = 0;
                     }
                 });
@@ -731,7 +745,7 @@
                         this.gameOver = true;
                         this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY; // Fixed here
                     }
-                    this.gameOverDelay -= 16;
+                    this.gameOverDelay -= this.CONFIG.FRAME_DELTA;
                     if (this.gameOverDelay <= 0) {
                         this.gameOver = false;
                         this.resetLevel();
@@ -767,7 +781,7 @@
             drawTargets() {
                 this.targets.forEach(t => {
                     if (!t.hit) {
-                        const targetRadius = (this.gridSize / 2) * 0.8;
+                        const targetRadius = (this.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
                         this.ctx.fillStyle = 'black';
                         this.ctx.beginPath();
                         this.ctx.arc(t.x * this.gridSize + this.gridSize / 2, t.y * this.gridSize + this.gridSize / 2 + this.topBorderSize, targetRadius + 2, 0, Math.PI * 2);
@@ -791,7 +805,7 @@
             drawMarker(color) {
                 if (this.marker) {
                     this.ctx.fillStyle = color;
-                    this.ctx.font = '30px Arial';
+                    this.ctx.font = `${this.CONFIG.MARKER_FONT_SIZE}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText('📍', this.marker.x * this.gridSize + this.gridSize / 2, this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
@@ -803,11 +817,11 @@
                 this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = 'green';
                 this.ctx.beginPath();
-                this.ctx.arc(0, 0, this.gridSize / 2 - 7, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.rotate(this.tank.currentAngle);
                 this.ctx.fillStyle = 'white';
-                this.ctx.font = '20px Arial';
+                this.ctx.font = `${this.CONFIG.TANK_FONT_SIZE}px Arial`;
                 this.ctx.textAlign = 'center';
                 this.ctx.textBaseline = 'middle';
                 this.ctx.fillText('➔', 0, 0);
@@ -817,7 +831,7 @@
             drawBullets() {
                 this.ctx.fillStyle = 'red';
                 this.bullets.forEach(b => {
-                    this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize + this.topBorderSize, 5, 5);
+                    this.ctx.fillRect(b.x * this.gridSize, b.y * this.gridSize + this.topBorderSize, this.CONFIG.BULLET_SIZE, this.CONFIG.BULLET_SIZE);
                 });
             }
 
@@ -828,7 +842,7 @@
                     this.ctx.arc(
                         this.powerUp.x * this.gridSize + this.gridSize / 2,
                         this.powerUp.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
-                        this.gridSize / 4,
+                        this.gridSize * this.CONFIG.POWER_UP_RADIUS_SCALE,
                         0,
                         Math.PI * 2
                     );
@@ -836,7 +850,7 @@
                 }
             }
             drawScoreboard(isDarkMode) {
-                const fontSize = Math.floor(this.bannerHeight / 2.5);
+                const fontSize = Math.floor(this.bannerHeight / this.CONFIG.SCOREBOARD_FONT_SCALE);
                 this.ctx.fillStyle = isDarkMode ? '#222' : '#ddd';
                 this.ctx.fillRect(0, 0, this.canvas.width, this.bannerHeight);
                 this.ctx.font = `${fontSize}px Arial`;
@@ -870,7 +884,7 @@
             drawMessages() {
                 if (this.levelCleared) {
                     this.ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--textColor').trim();
-                    this.ctx.font = `${Math.floor(this.canvas.height / 20)}px Arial`;
+                    this.ctx.font = `${Math.floor(this.canvas.height / this.CONFIG.MESSAGE_FONT_SCALE)}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText('Level Cleared! Starting New Level...', this.canvas.width / 2, this.canvas.height / 2);
@@ -878,7 +892,7 @@
 
                 if (this.gameOver) {
                     this.ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--textColor').trim();
-                    this.ctx.font = `${Math.floor(this.canvas.height / 20)}px Arial`;
+                    this.ctx.font = `${Math.floor(this.canvas.height / this.CONFIG.MESSAGE_FONT_SCALE)}px Arial`;
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'middle';
                     this.ctx.fillText('Game Over! Restarting...', this.canvas.width / 2, this.canvas.height / 2);
