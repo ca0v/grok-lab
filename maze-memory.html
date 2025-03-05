@@ -316,8 +316,8 @@
             initializeGameState() {
                 this.maze = [];
                 this.tank = {
-                    pos: new Vector2D(0, 0), // Current position (fractional for animation)
-                    targetPos: new Vector2D(0, 0), // Integer target cell
+                    pos: new Vector2D(0, 0),
+                    targetPos: new Vector2D(0, 0),
                     dir: 'right',
                     currentAngle: 0,
                     targetAngle: 0,
@@ -327,7 +327,7 @@
                 this.chaosMonster = null;
                 this.targets = [];
                 this.bullets = [];
-                this.powerUp = null;
+                this.powerUps = []; // Now an array
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
@@ -369,7 +369,7 @@
                 this.maze = this.generateMaze();
                 const startPos = this.getRandomOpenPosition();
                 this.tank.pos = startPos.copy();
-                this.tank.targetPos = startPos.copy(); // Start at integer position
+                this.tank.targetPos = startPos.copy();
 
                 const monsterPos = this.getRandomOpenPosition();
                 this.chaosMonster = {
@@ -395,7 +395,18 @@
                 this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
                 this.bullets = [];
-                this.powerUp = this.getRandomOpenPosition();
+                this.powerUps = [];
+                for (let i = 0; i < 3; i++) {
+                    let pos;
+                    do {
+                        pos = this.getRandomOpenPosition();
+                    } while (this.targets.some(t => t.pos.equals(pos)) ||
+                    pos.equals(this.tank.pos) ||
+                    pos.equals(this.chaosMonster.pos) ||
+                        this.powerUps.some(p => p.pos.equals(pos)));
+                    this.powerUps.push({ pos: pos, opacity: i === 2 ? 1 : 0, revealStart: i === 2 ? performance.now() : null });
+                }
+
                 this.currentTarget = 1;
                 this.showNumbers = true;
                 this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
@@ -664,10 +675,17 @@
                     }
                 });
 
-                if (this.powerUp && bulletGrid.equals(this.powerUp)) {
-                    this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
-                    this.powerUp = null;
-                    hitTarget = true;
+                for (let i = 0; i < this.powerUps.length; i++) {
+                    const p = this.powerUps[i];
+                    if (bulletGrid.equals(p.pos) && p.opacity === 1) {
+                        this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
+                        this.powerUps.splice(i, 1); // Pop the hit power-up
+                        if (this.powerUps.length > 0) {
+                            this.powerUps[this.powerUps.length - 1].revealStart = performance.now(); // Reveal last one
+                        }
+                        hitTarget = true;
+                        break;
+                    }
                 }
 
                 if (!hitTarget) {
@@ -720,7 +738,6 @@
                 }
 
                 if (!this.gameOver) {
-                    // Tank movement: Smoothly interpolate to targetPos
                     const tankDelta = this.tank.targetPos.subtract(this.tank.pos);
                     const tankDistance = tankDelta.distanceTo(new Vector2D(0, 0));
                     if (tankDistance > this.CONFIG.TANK_SPEED) {
@@ -732,7 +749,6 @@
                     }
 
                     if (this.tank.rotationStart !== null) {
-                        console.log("this.tank.rotationStart", this.tank.rotationStart)
                         const elapsed = performance.now() - this.tank.rotationStart;
                         if (elapsed < this.CONFIG.ROTATION_DURATION) {
                             const progress = elapsed / this.CONFIG.ROTATION_DURATION;
@@ -743,7 +759,6 @@
                         }
                     }
 
-                    // Chaos monster (ghost) movement
                     if (this.chaosMonster) {
                         if (!this.chaosMonster.holdingTarget) {
                             if (this.chaosMonster.target) {
@@ -777,6 +792,20 @@
                             }
                         }
                     }
+
+                    // Animate power-up reveal
+                    this.powerUps.forEach(p => {
+                        if (p.revealStart !== null) {
+                            const elapsed = performance.now() - p.revealStart;
+                            const duration = 1000; // 1-second fade-in
+                            if (elapsed < duration) {
+                                p.opacity = elapsed / duration;
+                            } else {
+                                p.opacity = 1;
+                                p.revealStart = null;
+                            }
+                        }
+                    });
 
                     this.targets.forEach(t => {
                         if (t.flashTimer > 0) {
@@ -902,18 +931,22 @@
             }
 
             drawPowerUp() {
-                if (this.powerUp) {
-                    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR;
-                    this.ctx.beginPath();
-                    this.ctx.arc(
-                        this.powerUp.x * this.gridSize + this.gridSize / 2,
-                        this.powerUp.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
-                        this.gridSize * this.CONFIG.POWER_UP_RADIUS_SCALE,
-                        0,
-                        Math.PI * 2
-                    );
-                    this.ctx.fill();
-                }
+                this.powerUps.forEach(p => {
+                    if (p.opacity > 0) {
+                        this.ctx.globalAlpha = p.opacity;
+                        this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR;
+                        this.ctx.beginPath();
+                        this.ctx.arc(
+                            p.pos.x * this.gridSize + this.gridSize / 2,
+                            p.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
+                            this.gridSize * this.CONFIG.POWER_UP_RADIUS_SCALE,
+                            0,
+                            Math.PI * 2
+                        );
+                        this.ctx.fill();
+                        this.ctx.globalAlpha = 1;
+                    }
+                });
             }
 
             drawScoreboard(isDarkMode) {
