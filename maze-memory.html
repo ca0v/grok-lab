@@ -276,7 +276,7 @@
             initializeGameState() {
                 this.maze = [];
                 this.tank = this.createTank(0, 0);
-                this.targets = [];
+                this.chaosMonster = null; // Add chaos monster, null until level                this.targets = [];
                 this.bullets = [];
                 this.powerUp = null;
                 this.powerUpTimer = 0;
@@ -337,15 +337,43 @@
                 const startPos = this.getRandomOpenPosition();
 
                 this.tank = this.createTank(startPos.x, startPos.y);
+                const monsterPos = this.getRandomOpenPosition();
+                this.chaosMonster = {
+                    x: monsterPos.x,
+                    y: monsterPos.y,
+                    originX: monsterPos.x, // Store initial spawn point
+                    originY: monsterPos.y,
+                    speed: 0.05,
+                    holdingTarget: null,
+                    target: null // Will set immediately below
+                };
                 this.targets = [];
                 this.assignTargetColors();
                 for (let i = 1; i <= this.maxTargets; i++) {
                     let pos;
                     do {
                         pos = this.getRandomOpenPosition();
-                    } while (this.targets.some(t => t.x === pos.x && t.y === pos.y) || (pos.x === this.tank.x && pos.y === this.tank.y));
+                    } while (this.targets.some(t => t.x === pos.x && t.y === pos.y) ||
+                    (pos.x === this.tank.x && pos.y === this.tank.y) ||
+                        (pos.x === this.chaosMonster.x && pos.y === this.chaosMonster.y));
                     this.targets.push({ x: pos.x, y: pos.y, num: i, hit: false, flashTimer: 0, color: this.targetColors[i - 1] });
                 }
+                // Set initial target for chaos monster
+                let nearestTarget = null;
+                let minDistance = Infinity;
+                this.targets.forEach(t => {
+                    if (!t.hit) {
+                        const dx = t.x - this.chaosMonster.x;
+                        const dy = t.y - this.chaosMonster.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            nearestTarget = t;
+                        }
+                    }
+                });
+                this.chaosMonster.target = nearestTarget;
+
                 this.bullets = [];
                 this.powerUp = this.getRandomOpenPosition();
                 this.currentTarget = 1;
@@ -358,10 +386,10 @@
                     this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
                 }
                 if (this.level > 0) {
-                    const moveBonus = Math.max(0, 100 - this.score.moves * 2); // Bonus: 100 points minus 2 per move
+                    const moveBonus = Math.max(0, 100 - this.score.moves * 2);
                     this.score.total += this.score.hits * this.score.lives + moveBonus;
                 }
-                this.score.moves = 0; // Reset after scoring
+                this.score.moves = 0;
                 this.levelCleared = false;
                 this.level++;
             }
@@ -673,7 +701,7 @@
             }
 
             update() {
-                if (this.levelCleared) return; // Only return for level cleared, not game over
+                if (this.levelCleared) return;
 
                 if (this.showNumbers && this.numberTimer > 0) {
                     this.numberTimer -= this.CONFIG.FRAME_DELTA;
@@ -683,11 +711,6 @@
 
                 const tankGridX = Math.floor(this.tank.x);
                 const tankGridY = Math.floor(this.tank.y);
-
-                if (this.powerUpTimer > 0) {
-                    this.powerUpTimer -= this.CONFIG.FRAME_DELTA;
-                    if (this.powerUpTimer < 0) this.powerUpTimer = 0;
-                }
 
                 if (this.showAllTimer > 0) {
                     this.showAllTimer -= this.CONFIG.FRAME_DELTA;
@@ -699,7 +722,7 @@
                     if (this.showNextTimer < 0) this.showNextTimer = 0;
                 }
 
-                if (!this.gameOver) { // Only update tank movement if not game over
+                if (!this.gameOver) {
                     if (this.tank.x !== this.tank.desiredX || this.tank.y !== this.tank.desiredY) {
                         const dx = this.tank.desiredX - this.tank.x;
                         const dy = this.tank.desiredY - this.tank.y;
@@ -755,6 +778,72 @@
                         }
                     }
 
+                    // Chaos monster movement
+                    if (this.chaosMonster) {
+                        if (!this.chaosMonster.holdingTarget) {
+                            // Move toward target
+                            if (this.chaosMonster.target) {
+                                const dx = this.chaosMonster.target.x - this.chaosMonster.x;
+                                const dy = this.chaosMonster.target.y - this.chaosMonster.y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                if (distance > this.chaosMonster.speed) { // Use speed as threshold
+                                    const moveX = (dx / distance) * this.chaosMonster.speed;
+                                    const moveY = (dy / distance) * this.chaosMonster.speed;
+                                    const nextX = this.chaosMonster.x + moveX;
+                                    const nextY = this.chaosMonster.y + moveY;
+                                    const gridX = Math.floor(nextX);
+                                    const gridY = Math.floor(nextY);
+                                    if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
+                                        this.chaosMonster.x = nextX;
+                                        this.chaosMonster.y = nextY;
+                                    }
+                                } else {
+                                    // Pick up the target
+                                    this.chaosMonster.holdingTarget = this.chaosMonster.target;
+                                    this.chaosMonster.target = null;
+                                }
+                            } else {
+                                // Find new target if current one is hit or missing
+                                let nearestTarget = null;
+                                let minDistance = Infinity;
+                                this.targets.forEach(t => {
+                                    if (!t.hit) {
+                                        const dx = t.x - this.chaosMonster.x;
+                                        const dy = t.y - this.chaosMonster.y;
+                                        const distance = Math.sqrt(dx * dx + dy * dy);
+                                        if (distance < minDistance) {
+                                            minDistance = distance;
+                                            nearestTarget = t;
+                                        }
+                                    }
+                                });
+                                this.chaosMonster.target = nearestTarget;
+                            }
+                        } else {
+                            // Move back to origin
+                            const dx = this.chaosMonster.originX - this.chaosMonster.x;
+                            const dy = this.chaosMonster.originY - this.chaosMonster.y;
+                            const distance = Math.sqrt(dx * dx + dy * dy);
+                            if (distance > this.chaosMonster.speed) {
+                                const moveX = (dx / distance) * this.chaosMonster.speed;
+                                const moveY = (dy / distance) * this.chaosMonster.speed;
+                                const nextX = this.chaosMonster.x + moveX;
+                                const nextY = this.chaosMonster.y + moveY;
+                                const gridX = Math.floor(nextX);
+                                const gridY = Math.floor(nextY);
+                                if (gridX >= 0 && gridX < this.mazeSize && gridY >= 0 && gridY < this.mazeSize && this.maze[gridY][gridX] === 0) {
+                                    this.chaosMonster.x = nextX;
+                                    this.chaosMonster.y = nextY;
+                                }
+                            } else {
+                                // Drop the target at origin
+                                this.chaosMonster.holdingTarget.x = this.chaosMonster.originX;
+                                this.chaosMonster.holdingTarget.y = this.chaosMonster.originY;
+                                this.chaosMonster.holdingTarget = null;
+                            }
+                        }
+                    }
+
                     this.targets.forEach(t => {
                         if (t.flashTimer > 0) {
                             t.flashTimer -= this.CONFIG.FRAME_DELTA;
@@ -773,7 +862,6 @@
                     });
                 }
 
-                // Handle game over restart regardless of gameOver state
                 if (this.score.lives <= 0) {
                     if (!this.gameOver) {
                         this.gameOver = true;
@@ -782,7 +870,7 @@
                     this.gameOverDelay -= this.CONFIG.FRAME_DELTA;
                     if (this.gameOverDelay <= 0) {
                         this.gameOver = false;
-                        this.score.lives = this.CONFIG.MAX_MISSES; // Reset lives to 5
+                        this.score.lives = this.CONFIG.MAX_MISSES;
                         this.resetLevel();
                     }
                 } else if (this.targets.every(t => t.hit)) {
@@ -793,14 +881,27 @@
 
             draw() {
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                this.drawMaze(); // No need for isDarkMode parameter
+                this.drawMaze();
                 this.drawTargets();
                 this.drawPowerUp();
                 this.drawMarker(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333' ? '#fff' : '#000');
                 this.drawTank();
+                this.drawChaosMonster(); // Add this
                 this.drawBullets();
                 this.drawScoreboard(getComputedStyle(document.documentElement).getPropertyValue('--grid-bg') === '#333');
                 this.drawMessages();
+            }
+
+            drawChaosMonster() {
+                if (this.chaosMonster) {
+                    this.ctx.save();
+                    this.ctx.translate(this.chaosMonster.x * this.gridSize + this.gridSize / 2, this.chaosMonster.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
+                    this.ctx.fillStyle = 'purple'; // Distinct color for chaos monster
+                    this.ctx.beginPath();
+                    this.ctx.arc(0, 0, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.restore();
+                }
             }
 
             drawMaze() {
@@ -852,7 +953,7 @@
                 this.ctx.translate(this.tank.x * this.gridSize + this.gridSize / 2, this.tank.y * this.gridSize + this.gridSize / 2 + this.topBorderSize);
                 this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
                 this.ctx.beginPath();
-                this.ctx.arc(0, 0, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET, 0, Math.PI * 2);
+                this.ctx.arc(0, 0, Math.max(1, this.gridSize / 2 - this.CONFIG.TANK_RADIUS_OFFSET), 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.rotate(this.tank.currentAngle);
                 this.ctx.fillStyle = 'white';
