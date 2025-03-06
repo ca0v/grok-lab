@@ -162,9 +162,9 @@ export class EventHandler {
 
   setupInputHandlers() {
     document.addEventListener("keydown", (e) => {
-      if (e.key === "r" && (this.game.gameOver || this.game.levelCleared)) {
+      if (e.key === "r") {
         this.game.clearGameState();
-        this.game.level = 0;
+        this.game.level = 1;
         this.game.score.total = 0;
         this.game.score.hits = 0;
         this.game.resetLevel();
