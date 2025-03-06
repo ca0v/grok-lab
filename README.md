@@ -1,3 +1,5 @@
+have a level where you are given the proper firing sequence, e.g 4,1,7,9,3,2,5,6,8 and then the numbers stay visible.
+
 # Tank Memory Maze
 
 A maze-based memory game where you control a tank to shoot numbered targets in order while avoiding a chaos monster that moves targets around.

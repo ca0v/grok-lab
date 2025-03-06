@@ -1,0 +1,142 @@
+/* maze-memory.css */
+:root {
+  --grid-bg: #fff;
+  --textColor: #000; /* Default black text */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --grid-bg: #333;
+    --textColor: #fff; /* White text in dark mode */
+  }
+}
+
+body {
+  overflow: hidden;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background: var(--grid-bg);
+}
+
+canvas {
+  border: 1px solid black;
+  margin: 10px;
+  box-sizing: border-box;
+  display: block;
+}
+
+#instructions {
+  display: none;
+
+  @media (max-width: 768px) {
+    display: block;
+  }
+
+  user-select: none;
+  pointer-events: none;
+  position: absolute;
+  bottom: 0;
+  font-size: small;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  margin: 10px 20px;
+  animation: fadeOut 30s ease forwards;
+  color: red;
+}
+
+#controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 10px;
+  max-width: 90vw;
+}
+
+/* Landscape mode: Move controls to the right */
+@media (orientation: landscape) {
+  body {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+  }
+
+  canvas {
+    margin-right: 0; /* Reduce right margin to fit controls */
+  }
+
+  #controls {
+    flex-direction: column; /* Stack controls vertically on the right */
+    max-width: 20vw; /* Limit width in landscape */
+  }
+}
+
+/* Portrait mode: Keep controls below (default) */
+@media (orientation: portrait) {
+  body {
+    flex-direction: column;
+  }
+
+  #controls {
+    max-width: 90vw; /* Full width below grid in portrait */
+  }
+}
+
+.joystick {
+  width: 90px;
+  height: 90px;
+  font-size: 28px;
+  background-color: #ccc;
+  border: 2px solid #333;
+  border-radius: 50%; /* Circular joystick */
+  cursor: pointer;
+  touch-action: none;
+  margin: 5px;
+  position: relative; /* For joystick movement tracking */
+  overflow: hidden; /* Contain joystick movement */
+}
+
+.joystick-active {
+  background-color: #aaa; /* Visual feedback when active */
+}
+
+.extra-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.control-btn {
+  width: 80px;
+  height: 80px;
+  font-size: 24px;
+  font-family: Arial, sans-serif;
+  background-color: #ccc;
+  border: 2px solid #333;
+  border-radius: 10px;
+  cursor: pointer;
+  touch-action: none;
+  margin: 5px;
+}
+
+#controls {
+  gap: 15px; /* More spacing between control groups */
+}
+
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    display: none;
+  }
+}
