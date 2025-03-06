@@ -34,9 +34,7 @@ export class RenderEngine {
       .getPropertyValue("--grid-bg")
       .trim();
     for (let y = 0; y < this.game.mazeHeight; y++) {
-      // Use mazeHeight for rows
       for (let x = 0; x < this.game.mazeWidth; x++) {
-        // Use mazeWidth for columns
         this.ctx.fillStyle =
           this.game.maze[y][x] === 1 ? this.CONFIG.MAZE_WALL_COLOR : bgColor;
         this.ctx.fillRect(
@@ -54,48 +52,46 @@ export class RenderEngine {
       if (!t.hit) {
         const targetRadius =
           (this.game.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
+        const x = t.pos.x * this.game.gridSize + this.game.gridSize / 2;
+        const y =
+          t.pos.y * this.game.gridSize +
+          this.game.gridSize / 2 +
+          this.game.topBorderSize;
+
+        // Draw target outline
         this.ctx.fillStyle = this.CONFIG.TARGET_OUTLINE_COLOR;
         this.ctx.beginPath();
-        this.ctx.arc(
-          t.pos.x * this.game.gridSize + this.game.gridSize / 2,
-          t.pos.y * this.game.gridSize +
-            this.game.gridSize / 2 +
-            this.game.topBorderSize,
-          targetRadius + 2,
-          0,
-          Math.PI * 2
-        );
-        this.ctx.fill();
-        this.ctx.fillStyle = t.color;
-        this.ctx.beginPath();
-        this.ctx.arc(
-          t.pos.x * this.game.gridSize + this.game.gridSize / 2,
-          t.pos.y * this.game.gridSize +
-            this.game.gridSize / 2 +
-            this.game.topBorderSize,
-          targetRadius,
-          0,
-          Math.PI * 2
-        );
+        this.ctx.arc(x, y, targetRadius + 2, 0, Math.PI * 2);
         this.ctx.fill();
 
+        // Draw target fill
+        this.ctx.fillStyle = t.color;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, targetRadius, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // Draw target number
         if (
           this.game.showNumbers ||
           t.flashTimer > 0 ||
           this.game.showAllTimer > 0 ||
           (t.num === this.game.currentTarget && this.game.showNextTimer > 0)
         ) {
-          this.ctx.fillStyle = "white";
-          this.ctx.font = `${Math.floor(targetRadius)}px Arial`;
+          const fontSize = Math.floor(
+            (this.game.gridSize / 40) * this.CONFIG.TARGET_FONT_SIZE
+          );
+          this.ctx.font = `bold ${fontSize}px Arial`;
           this.ctx.textAlign = "center";
           this.ctx.textBaseline = "middle";
-          this.ctx.fillText(
-            t.num,
-            t.pos.x * this.game.gridSize + this.game.gridSize / 2,
-            t.pos.y * this.game.gridSize +
-              this.game.gridSize / 2 +
-              this.game.topBorderSize
-          );
+
+          // Outline for contrast
+          this.ctx.strokeStyle = "black";
+          this.ctx.lineWidth = 2;
+          this.ctx.strokeText(t.num.toString(), x, y);
+
+          // Fill with white
+          this.ctx.fillStyle = "white";
+          this.ctx.fillText(t.num.toString(), x, y);
         }
       }
     });

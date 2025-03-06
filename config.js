@@ -39,6 +39,7 @@ export const CONFIG = {
   MESSAGE_FONT_SCALE: 20,
   MARKER_FONT_SIZE: 30,
   TANK_FONT_SIZE: 20,
+  TARGET_FONT_SIZE: 30, // New: Base font size for target numbers
 };
 
 export const INPUT_MAP = {

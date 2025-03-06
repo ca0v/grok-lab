@@ -117,10 +117,53 @@ class MazeMemoryGame {
   initializeCanvas() {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
-    this.gridSize = CONFIG.GRID_SIZE;
     this.controlsHeight = CONFIG.CONTROLS_HEIGHT;
     this.topBorderSize = 0;
-    this.updateCanvasSize();
+    this.updateCanvasSize(); // Initial sizing
+  }
+
+  updateCanvasSize() {
+    // Available screen dimensions minus margins
+    const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
+    const windowHeight =
+      window.innerHeight - CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
+
+    // Calculate canvas width to fill available screen width
+    this.canvas.width = windowWidth;
+
+    // Calculate banner height as a percentage of canvas width
+    this.bannerHeight = this.canvas.width * CONFIG.BANNER_HEIGHT_PERCENT;
+    this.topBorderSize = this.bannerHeight;
+
+    // Calculate maximum grid height (excluding banner)
+    const maxGridHeight = windowHeight - this.bannerHeight;
+
+    // Calculate grid size based on width, ensuring it's at least CONFIG.GRID_SIZE
+    const gridSizeWidth = Math.floor(windowWidth / this.mazeWidth);
+    const gridSizeHeight = Math.floor(maxGridHeight / this.mazeHeight);
+    this.gridSize = Math.max(
+      CONFIG.GRID_SIZE,
+      Math.min(gridSizeWidth, gridSizeHeight)
+    );
+
+    // Set canvas height based on grid size and maze dimensions, plus banner
+    this.canvas.height = this.mazeHeight * this.gridSize + this.bannerHeight;
+
+    // Store banner height in dataset for rendering purposes
+    this.canvas.dataset.bannerHeight = this.bannerHeight;
+
+    console.log(
+      "Canvas resized: width=",
+      this.canvas.width,
+      "height=",
+      this.canvas.height,
+      "gridSize=",
+      this.gridSize,
+      "mazeWidth=",
+      this.mazeWidth,
+      "mazeHeight=",
+      this.mazeHeight
+    );
   }
 
   initializeGameState() {
@@ -174,7 +217,7 @@ class MazeMemoryGame {
       CONFIG.MIN_GRID_SIZE +
         (difficulty + levelCycle) * CONFIG.MAZE_SIZE_INCREMENT
     );
-    this.updateCanvasSize();
+    this.updateCanvasSize(); // Recalculate canvas size with new maze dimensions
 
     this.maze = this.generateMaze(this.mazeWidth, this.mazeHeight);
     const startPos = this.getRandomOpenPosition();
