@@ -26,10 +26,7 @@ export class EventHandler {
   handleInput(input) {
     switch (input.action) {
       case "moveFar": {
-        const pos = this.game.movementEngine.moveFar(
-          this.game.tank.targetPos,
-          input.dir
-        );
+        const pos = this.game.movementEngine.moveFar(this.game.tank.targetPos, input.dir);
         this.game.tank.targetPos = pos;
         this.game.tank.ignoreCollisions = false;
         this.game.movementEngine.updateTankDirection(input.dir);
@@ -37,15 +34,12 @@ export class EventHandler {
         break;
       }
       case "moveOne": {
-        if (this.game.tank.dir === input.dir) {
-          const newPos = this.game.tank.targetPos.add(
-            this.game.DIRECTION_VECTORS[input.dir]
-          );
-          if (this.game.isValidMove(newPos)) {
-            this.game.tank.targetPos = newPos;
-            this.game.tank.ignoreCollisions = false;
-            this.game.score.moves++;
-          }
+        // Removed the direction check to allow immediate movement
+        const newPos = this.game.tank.targetPos.add(this.game.DIRECTION_VECTORS[input.dir]);
+        if (this.game.isValidMove(newPos)) {
+          this.game.tank.targetPos = newPos;
+          this.game.tank.ignoreCollisions = false;
+          this.game.score.moves++;
         }
         this.game.movementEngine.updateTankDirection(input.dir);
         break;
@@ -55,10 +49,7 @@ export class EventHandler {
           this.game.movementEngine.updateTankDirection(input.dir);
           this.game.lastButtonDirection = input.dir;
         } else if (this.game.lastButtonDirection === input.dir) {
-          const pos = this.game.movementEngine.moveFar(
-            this.game.tank.targetPos,
-            input.dir
-          );
+          const pos = this.game.movementEngine.moveFar(this.game.tank.targetPos, input.dir);
           this.game.tank.targetPos = pos;
           this.game.tank.dir = input.dir;
           this.game.tank.ignoreCollisions = false;
@@ -139,9 +130,9 @@ export class EventHandler {
     if (!hitTarget) {
       if (
         bulletGrid.x >= 0 &&
-        bulletGrid.x < this.game.mazeWidth && // Use mazeWidth for x-axis
+        bulletGrid.x < this.game.mazeWidth &&
         bulletGrid.y >= 0 &&
-        bulletGrid.y < this.game.mazeHeight // Use mazeHeight for y-axis
+        bulletGrid.y < this.game.mazeHeight
       ) {
         if (this.game.maze[bulletGrid.y][bulletGrid.x] === 1) {
           this.game.maze[bulletGrid.y][bulletGrid.x] = 0;
@@ -170,8 +161,7 @@ export class EventHandler {
       if (this.game.keysPressed[e.key]) return;
       this.game.keysPressed[e.key] = true;
 
-      const input =
-        this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
+      const input = this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
       if (input) {
         e.preventDefault();
         if (
