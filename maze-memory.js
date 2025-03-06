@@ -210,30 +210,42 @@ class MazeMemoryGame {
       (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     );
 
-    // Wider-than-tall grid in landscape
     this.mazeWidth = isLandscape
-      ? Math.min(
-          this.CONFIG.MAX_GRID_WIDTH,
-          this.CONFIG.MIN_GRID_SIZE +
-            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      ? Math.max(
+          this.CONFIG.MIN_GRID_SIZE,
+          Math.min(
+            this.CONFIG.MAX_GRID_WIDTH,
+            this.CONFIG.MIN_GRID_SIZE +
+              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+          )
         )
-      : Math.min(
-          this.CONFIG.MAX_GRID_WIDTH,
-          this.CONFIG.MIN_GRID_SIZE +
-            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      : Math.max(
+          this.CONFIG.MIN_GRID_SIZE,
+          Math.min(
+            this.CONFIG.MAX_GRID_WIDTH,
+            this.CONFIG.MIN_GRID_SIZE +
+              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+          )
         );
     this.mazeHeight = isLandscape
-      ? Math.min(
-          Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2),
-          this.CONFIG.MIN_GRID_SIZE +
-            Math.floor(
-              ((difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT) / 2
-            )
+      ? Math.max(
+          this.CONFIG.MIN_GRID_SIZE,
+          Math.min(
+            Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2),
+            this.CONFIG.MIN_GRID_SIZE +
+              Math.floor(
+                ((difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT) /
+                  2
+              )
+          )
         )
-      : Math.min(
-          this.CONFIG.MAX_GRID_HEIGHT,
-          this.CONFIG.MIN_GRID_SIZE +
-            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      : Math.max(
+          this.CONFIG.MIN_GRID_SIZE,
+          Math.min(
+            this.CONFIG.MAX_GRID_HEIGHT,
+            this.CONFIG.MIN_GRID_SIZE +
+              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+          )
         );
 
     this.updateCanvasSize();
@@ -243,14 +255,19 @@ class MazeMemoryGame {
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
 
-    const monsterPos = this.getRandomOpenPosition();
-    this.chaosMonster = {
-      pos: monsterPos.copy(),
-      origin: monsterPos.copy(),
-      speed: this.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
-      holdingTarget: null,
-      target: null,
-    };
+    // Conditionally spawn chaos monster after CHAOS_MONSTER_START_LEVEL
+    if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL) {
+      const monsterPos = this.getRandomOpenPosition();
+      this.chaosMonster = {
+        pos: monsterPos.copy(),
+        origin: monsterPos.copy(),
+        speed: this.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
+        holdingTarget: null,
+        target: null,
+      };
+    } else {
+      this.chaosMonster = null; // No chaos monster before the start level
+    }
 
     this.maxTargets =
       this.CONFIG.TARGETS_BASE +
@@ -264,7 +281,7 @@ class MazeMemoryGame {
       } while (
         this.targets.some((t) => t.pos.equals(pos)) ||
         pos.equals(this.tank.pos) ||
-        pos.equals(this.chaosMonster.pos)
+        (this.chaosMonster && pos.equals(this.chaosMonster.pos))
       );
       this.targets.push({
         pos: pos,
@@ -274,7 +291,9 @@ class MazeMemoryGame {
         color: this.targetColors[i - 1],
       });
     }
-    this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
+    if (this.chaosMonster) {
+      this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
+    }
 
     this.bullets = [];
     this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
@@ -284,7 +303,7 @@ class MazeMemoryGame {
       } while (
         this.targets.some((t) => t.pos.equals(pos)) ||
         pos.equals(this.tank.pos) ||
-        pos.equals(this.chaosMonster.pos) ||
+        (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
         this.powerUps.some((p) => p.pos.equals(pos))
       );
       return { pos: pos, opacity: 0, revealStart: null };
@@ -312,7 +331,6 @@ class MazeMemoryGame {
     this.levelCleared = false;
     this.saveGameState();
   }
-
   updateCanvasSize() {
     const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
