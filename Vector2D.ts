@@ -1,17 +1,4 @@
 export class Vector2D {
-  scale(s: number) {
-    return new Vector2D(this.x * s, this.y * s);
-  }
-  subtract(pos: Vector2D) {
-    return new Vector2D(this.x - pos.x, this.y - pos.y);
-  }
-  round(): Vector2D {
-    return new Vector2D(
-      Math.round(this.x * 1000) / 1000,
-      Math.round(this.y * 1000) / 1000
-    );
-  }
-
   x: number;
   y: number;
 
@@ -34,11 +21,31 @@ export class Vector2D {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  scale(s: number) {
+    return new Vector2D(this.x * s, this.y * s);
+  }
+
+  subtract(pos: Vector2D) {
+    return new Vector2D(this.x - pos.x, this.y - pos.y);
+  }
+
+  round(places = 0): Vector2D {
+    const factor = Math.pow(10, places);
+    return new Vector2D(
+      Math.round(this.x * factor) / factor,
+      Math.round(this.y * factor) / factor
+    );
+  }
+
   equals(other: Vector2D): boolean {
     return this.x === other.x && this.y === other.y;
   }
 
   toString(): string {
     return `(${this.x}, ${this.y})`;
+  }
+
+  isWithinBounds(width: number, height: number): boolean {
+    return this.x >= 0 && this.x < width && this.y >= 0 && this.y < height;
   }
 }

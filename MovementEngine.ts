@@ -80,39 +80,60 @@ export class MovementEngine {
     }
   }
 
+  // Helper method to get/set maze value at a Vector2D position
+  private getMazeValue(pos: Vector2D): number {
+    const gridPos = pos.round();
+    if (
+      gridPos.x < 0 ||
+      gridPos.x >= this.game.mazeWidth ||
+      gridPos.y < 0 ||
+      gridPos.y >= this.game.mazeHeight
+    ) {
+      return -1; // Out of bounds indicator
+    }
+    return this.game.maze[gridPos.y][gridPos.x];
+  }
+
+  private setMazeValue(pos: Vector2D, value: number): void {
+    const gridPos = pos.round();
+    if (
+      gridPos.x >= 0 &&
+      gridPos.x < this.game.mazeWidth &&
+      gridPos.y >= 0 &&
+      gridPos.y < this.game.mazeHeight
+    ) {
+      this.game.maze[gridPos.y][gridPos.x] = value;
+    }
+  }
+
   updateBullets(deltaTime: number) {
     this.game.bullets = this.game.bullets.filter((bullet) => {
       const dirVec =
         this.game.DIRECTION_VECTORS[
           bullet.dir as keyof typeof this.game.DIRECTION_VECTORS
         ];
-      const lastPos = bullet.pos.copy(); // Previous position
+      const lastPos = bullet.pos.copy();
       const moveStep = dirVec
         .copy()
-        .scale(this.game.CONFIG.BULLET_SPEED * deltaTime); // Vector movement
+        .scale(this.game.CONFIG.BULLET_SPEED * deltaTime);
       bullet.pos = bullet.pos.add(moveStep);
 
-      const bulletGridPos = new Vector2D(
-        Math.round(bullet.pos.x),
-        Math.round(bullet.pos.y)
-      );
-      if (
-        bulletGridPos.x < 0 ||
-        bulletGridPos.x >= this.game.mazeWidth ||
-        bulletGridPos.y < 0 ||
-        bulletGridPos.y >= this.game.mazeHeight ||
-        this.game.maze[bulletGridPos.y][bulletGridPos.x] === 1
-      ) {
+      const bulletGridPos = bullet.pos.round();
+      const mazeValue = this.getMazeValue(bulletGridPos);
+      if (mazeValue === -1) {
+        // Out of bounds
         return false;
+      } else if (mazeValue === 1) {
+        // Hit a wall
+        this.setMazeValue(bulletGridPos, 0); // Destroy wall
       }
 
       const hitTarget = this.game.targets.find((target) => {
         if (target.hit) return false;
         const bulletToTarget = bullet.pos.subtract(target.pos);
-        const distance = bulletToTarget.distanceTo(new Vector2D(0, 0)); // Length from origin
-        const hitRadius = this.game.CONFIG.TARGET_RADIUS_SCALE; // Full radius (0.8)
+        const distance = bulletToTarget.distanceTo(new Vector2D(0, 0));
+        const hitRadius = this.game.CONFIG.TARGET_RADIUS_SCALE;
 
-        // Check if bullet passed through target this frame
         const lastBulletToTarget = lastPos.subtract(target.pos);
         const lastDistance = lastBulletToTarget.distanceTo(new Vector2D(0, 0));
         const crossedTarget =
@@ -124,7 +145,8 @@ export class MovementEngine {
       });
 
       if (hitTarget) {
-        hitTarget.hit = true;
+        const index = this.game.targets.indexOf(hitTarget);
+        this.game.targets.splice(index, 1);
         hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
         this.game.score.hits++;
 
@@ -148,10 +170,9 @@ export class MovementEngine {
 
       if (hitPowerUp) {
         const index = this.game.powerUps.indexOf(hitPowerUp);
-        this.game.powerUps.splice(index, 1); // Remove power-up
-        // Show numbers for all remaining targets
+        this.game.powerUps.splice(index, 1);
         this.game.showNumbers = true;
-        this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER; // e.g., 5000ms
+        this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER;
         return false;
       }
 

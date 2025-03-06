@@ -142,8 +142,14 @@ export class EventHandler {
         break;
 
       case "shoot":
+        // Calculate bullet origin at the neighboring cell (barrel tip)
+        const dirVec =
+          this.game.DIRECTION_VECTORS[
+            tank.dir as keyof typeof this.game.DIRECTION_VECTORS
+          ];
+        const bulletOrigin = tank.pos.copy().add(dirVec);
         this.game.bullets.push({
-          pos: tank.pos.copy(),
+          pos: bulletOrigin,
           dir: tank.dir,
         });
         break;
