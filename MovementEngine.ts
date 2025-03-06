@@ -1,0 +1,201 @@
+import type { MazeMemoryGame } from "./maze-memory.js";
+import { Vector2D } from "./Vector2D.js";
+
+export class MovementEngine {
+  game: MazeMemoryGame;
+
+  constructor(game: MazeMemoryGame) {
+    this.game = game;
+  }
+
+  updateTank(deltaTime: number) {
+    const speed = this.game.CONFIG.TANK_SPEED;
+    const dx = this.game.tank.targetPos.x - this.game.tank.pos.x;
+    const dy = this.game.tank.targetPos.y - this.game.tank.pos.y;
+
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > 0.01) {
+      const moveDistance = Math.min(distance, speed * deltaTime);
+      this.game.tank.pos.x += (dx / distance) * moveDistance;
+      this.game.tank.pos.y += (dy / distance) * moveDistance;
+
+      const dir =
+        Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? "right"
+            : "left"
+          : dy > 0
+          ? "down"
+          : "up";
+      const currentAngle = this.game.tank.currentAngle;
+      const targetAngle = this.directionToAngle(dir);
+
+      if (currentAngle !== targetAngle) {
+        if (this.game.tank.rotationStart === null) {
+          this.game.tank.rotationStart = performance.now();
+        }
+        const elapsed = performance.now() - this.game.tank.rotationStart;
+        const duration = this.game.CONFIG.ROTATION_DURATION;
+        const progress = Math.min(elapsed / duration, 1);
+        this.game.tank.currentAngle = this.lerpAngle(
+          currentAngle,
+          targetAngle,
+          progress
+        );
+        if (progress === 1) {
+          this.game.tank.rotationStart = null;
+          this.game.tank.currentAngle = targetAngle;
+        }
+      }
+    } else {
+      this.game.tank.pos.x = this.game.tank.targetPos.x;
+      this.game.tank.pos.y = this.game.tank.targetPos.y;
+      this.game.tank.rotationStart = null;
+    }
+  }
+
+  updateChaosMonster(deltaTime: number) {
+    if (!this.game.chaosMonster) return;
+
+    const chaosMonster = this.game.chaosMonster;
+    if (!chaosMonster.target || chaosMonster.holdingTarget) return;
+
+    const dx = chaosMonster.target.pos.x - chaosMonster.pos.x;
+    const dy = chaosMonster.target.pos.y - chaosMonster.pos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0.1) {
+      const speed = chaosMonster.speed;
+      const moveDistance = Math.min(distance, speed * deltaTime);
+      chaosMonster.pos.x += (dx / distance) * moveDistance;
+      chaosMonster.pos.y += (dy / distance) * moveDistance;
+    } else {
+      chaosMonster.pos.x = chaosMonster.target.pos.x;
+      chaosMonster.pos.y = chaosMonster.target.pos.y;
+      chaosMonster.holdingTarget = chaosMonster.target;
+
+      const newTarget = this.game.targets.find(
+        (t) => !t.hit && t !== chaosMonster.target
+      );
+      chaosMonster.target = newTarget || null;
+    }
+  }
+
+  updateBullets(deltaTime: number) {
+    this.game.bullets = this.game.bullets.filter((bullet) => {
+      const dirVec =
+        this.game.DIRECTION_VECTORS[
+          bullet.dir as keyof typeof this.game.DIRECTION_VECTORS
+        ];
+      bullet.pos.x += dirVec.x * this.game.CONFIG.BULLET_SPEED * deltaTime;
+      bullet.pos.y += dirVec.y * this.game.CONFIG.BULLET_SPEED * deltaTime;
+
+      const bulletGridX = Math.round(bullet.pos.x);
+      const bulletGridY = Math.round(bullet.pos.y);
+      if (
+        bulletGridX < 0 ||
+        bulletGridX >= this.game.mazeWidth ||
+        bulletGridY < 0 ||
+        bulletGridY >= this.game.mazeHeight ||
+        this.game.maze[bulletGridY][bulletGridX] === 1
+      ) {
+        return false;
+      }
+
+      const hitTarget = this.game.targets.find((target) => {
+        if (target.hit) return false;
+        const dx = bullet.pos.x - target.pos.x;
+        const dy = bullet.pos.y - target.pos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < this.game.CONFIG.TARGET_RADIUS_SCALE / 2;
+      });
+
+      if (hitTarget) {
+        hitTarget.hit = true;
+        hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
+        this.game.score.hits++;
+
+        if (hitTarget.num === this.game.currentTarget) {
+          this.game.currentTarget++;
+        } else {
+          this.game.score.lives--;
+          this.game.currentTarget = 1;
+          this.game.targets.forEach((t) => (t.hit = false));
+        }
+        return false;
+      }
+
+      const hitPowerUp = this.game.powerUps.find((p) => {
+        const dx = bullet.pos.x - p.pos.x;
+        const dy = bullet.pos.y - p.pos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return (
+          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE / 2 &&
+          p.opacity === 1
+        );
+      });
+
+      if (hitPowerUp) {
+        const index = this.game.powerUps.indexOf(hitPowerUp);
+        this.game.powerUps.splice(index, 1);
+        this.game.score.lives = Math.min(
+          this.game.score.lives + 1,
+          this.game.CONFIG.MAX_MISSES
+        );
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  moveFar(targetPos: Vector2D, dir: string): Vector2D {
+    let newPos = targetPos.copy();
+    while (
+      this.game.isValidMove(
+        newPos.add(
+          this.game.DIRECTION_VECTORS[
+            dir as keyof typeof this.game.DIRECTION_VECTORS
+          ]
+        )
+      )
+    ) {
+      newPos = newPos.add(
+        this.game.DIRECTION_VECTORS[
+          dir as keyof typeof this.game.DIRECTION_VECTORS
+        ]
+      );
+      if (this.game.isIntersection(newPos, this.oppositeDirection(dir))) break;
+    }
+    return newPos;
+  }
+
+  directionToAngle(dir: string): number {
+    const angles: { [key: string]: number } = {
+      up: -Math.PI / 2,
+      down: Math.PI / 2,
+      left: Math.PI,
+      right: 0,
+    };
+    return angles[dir] || 0;
+  }
+
+  oppositeDirection(dir: string): string {
+    const opposites: { [key: string]: string } = {
+      up: "down",
+      down: "up",
+      left: "right",
+      right: "left",
+    };
+    return opposites[dir] || dir;
+  }
+
+  lerpAngle(from: number, to: number, progress: number): number {
+    const difference = ((to - from + Math.PI) % (2 * Math.PI)) - Math.PI;
+    return from + difference * progress;
+  }
+
+  updateTankDirection(dir: string) {
+    this.game.tank.dir = dir;
+  }
+}

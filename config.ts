@@ -1,8 +1,8 @@
-import { Vector2D } from "./Vector2D.js";
+import { Vector2D } from "./Vector2D.js"; // Will update to .ts
 
 export const CONFIG = {
   MAX_POWER_UP_COUNT: 5,
-  BANNER_HEIGHT_PERCENT: 0.12,
+  BANNER_HEIGHT_RATIO: 0.12, // Renamed from BANNER_HEIGHT_PERCENT
   SCOREBOARD_FONT_SCALE: 3,
   MAZE_WALL_COLOR: "gray",
   TANK_COLOR: "green",
@@ -12,16 +12,16 @@ export const CONFIG = {
   CHAOS_MONSTER_COLOR: "rgba(0, 255, 0, 0.5)",
   CHAOS_MONSTER_START_LEVEL: 4,
   POWER_UP_START_LEVEL: 3,
-  GRID_SIZE: 40,
+  CELL_SIZE_DEFAULT: 40, // Renamed from GRID_SIZE
   CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
   MAX_MISSES: 5,
   FRAME_DELTA: 1000 / 30,
   BULLET_SPEED: 12,
   TANK_SPEED: 6,
   CHAOS_MONSTER_SPEED: 4,
-  MIN_GRID_SIZE: 5,
-  MAX_GRID_WIDTH: 15,
-  MAX_GRID_HEIGHT: 15,
+  MIN_CELL_COUNT: 5, // Renamed from MIN_GRID_SIZE
+  MAX_COLUMN_COUNT: 15, // Renamed from MAX_GRID_WIDTH
+  MAX_ROW_COUNT: 15, // Renamed from MAX_GRID_HEIGHT
   LEVELS_PER_CYCLE: 3,
   POWER_UP_REVEAL_DURATION: 3000,
   INITIAL_NUMBER_TIMER: 5000,
@@ -35,14 +35,14 @@ export const CONFIG = {
   POWER_UP_RADIUS_SCALE: 0.25,
   ROTATION_DURATION: 50,
   FLASH_DURATION: 1000,
-  MAZE_SIZE_INCREMENT: 2,
+  LEVEL_SIZE_INCREMENT: 2, // Renamed from MAZE_SIZE_INCREMENT
   TARGETS_BASE: 3,
   TARGETS_PER_LEVEL: 3,
   MESSAGE_FONT_SCALE: 20,
   MARKER_FONT_SIZE: 30,
   TANK_FONT_SIZE: 20,
-  TARGET_FONT_SIZE: 30, // New: Base font size for target numbers
-};
+  TARGET_FONT_SIZE: 30,
+} as const;
 
 export const INPUT_MAP = {
   w: { action: "moveFar", dir: "up" },
@@ -64,11 +64,11 @@ export const INPUT_MAP = {
   right: { action: "move", dir: "right" },
   marker: { action: "marker" },
   peek: { action: "peek" },
-};
+} as const;
 
 export const DIRECTION_VECTORS = {
   up: new Vector2D(0, -1),
   down: new Vector2D(0, 1),
   left: new Vector2D(-1, 0),
   right: new Vector2D(1, 0),
-};
+} as const;

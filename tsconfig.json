@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES6", // Modern browsers support ES6
+    "module": "ESNext", // For ES6 module syntax (import/export)
+    "outDir": "./dist", // Output directory for .js files
+    "rootDir": "./", // Source directory
+    "strict": false, // Enforce strict typing
+    "esModuleInterop": true, // For compatibility with CommonJS imports
+    "skipLibCheck": true // Speed up compilation
+  },
+  "include": ["*.ts"], // Compile all .ts files in root
+  "exclude": ["node_modules"] // Ignore node_modules
+}

@@ -5,23 +5,100 @@ import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
 import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
 
-function range(n) {
+function range(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i);
 }
 
-class MazeMemoryGame {
-  constructor() {
-    this.CONFIG = CONFIG; // Assign the imported CONFIG to a class property
-    this.INPUT_MAP = INPUT_MAP; // Assign the imported INPUT_MAP to a class property
-    this.DIRECTION_VECTORS = DIRECTION_VECTORS; // Assign the imported DIRECTION_VECTORS to a class property
+interface Tank {
+  pos: Vector2D;
+  targetPos: Vector2D;
+  dir: string;
+  currentAngle: number;
+  targetAngle: number;
+  rotationStart: number | null;
+  ignoreCollisions: boolean;
+}
 
+interface ChaosMonster {
+  pos: Vector2D;
+  origin: Vector2D;
+  speed: number;
+  holdingTarget: any;
+  target: any;
+}
+
+interface Target {
+  pos: Vector2D;
+  num: number;
+  hit: boolean;
+  flashTimer: number;
+  color: string;
+}
+
+interface Bullet {
+  pos: Vector2D;
+  dir: string;
+}
+
+interface PowerUp {
+  pos: Vector2D;
+  opacity: number;
+  revealStart: number | null;
+}
+
+interface Score {
+  hits: number;
+  lives: number;
+  total: number;
+  moves: number;
+}
+
+export class MazeMemoryGame {
+  CONFIG = CONFIG;
+  INPUT_MAP = INPUT_MAP;
+  DIRECTION_VECTORS = DIRECTION_VECTORS;
+
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  controlsHeight: number;
+  topBorderSize: number;
+  gridSize: number;
+  mazeWidth: number;
+  mazeHeight: number;
+  movementEngine: MovementEngine;
+  renderEngine: RenderEngine;
+  eventHandler: EventHandler;
+
+  maze: number[][];
+  tank: Tank;
+  chaosMonster: ChaosMonster | null;
+  targets: Target[];
+  bullets: Bullet[];
+  powerUps: PowerUp[];
+  currentTarget: number;
+  showNumbers: boolean;
+  numberTimer: number;
+  keysPressed: { [key: string]: boolean };
+  score: Score;
+  gameOverDelay: number;
+  marker: Vector2D | null;
+  gameOver: boolean;
+  levelCleared: boolean;
+  targetColors: string[];
+  colorIndex: number;
+  lastButtonDirection: string | null;
+  showAllTimer: number;
+  showNextTimer: number;
+  level: number;
+  maxTargets: number;
+  lastTime: number;
+  accumulatedTime: number;
+  bannerHeight: number;
+
+  constructor() {
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
-
-    if (window.innerWidth <= 480) {
-      this.CONFIG.MAX_GRID_WIDTH = 11;
-    }
 
     this.initializeGameConstants();
 
@@ -40,52 +117,43 @@ class MazeMemoryGame {
     const joystickContainer = document.getElementById("joystick-container");
 
     if (isTouchSupported) {
-      joystickContainer.style.display = "flex";
+      joystickContainer!.style.display = "flex";
       this.setupGestureEngine();
       this.canvas.addEventListener(
         "touchstart",
         this.handleCanvasTap.bind(this)
       );
     } else {
-      joystickContainer.style.display = "none";
+      joystickContainer!.style.display = "none";
     }
 
     this.gameLoop();
   }
 
   setupGestureEngine() {
-    const joystick = document.getElementById("shoot");
+    const joystick = document.getElementById("shoot")!;
     joystick.classList.remove("control-btn");
     joystick.classList.add("joystick");
     new GestureEngine(joystick, this);
   }
 
-  handleInput(input) {
+  handleInput(input: any) {
     this.eventHandler.handleInput(input);
   }
 
-  handleCanvasTap(e) {
+  handleCanvasTap(e: TouchEvent) {
     e.preventDefault();
     const touch = e.touches[0];
     const canvasRect = this.canvas.getBoundingClientRect();
     const tapX = touch.clientX - canvasRect.left;
     const tapY = touch.clientY - canvasRect.top;
 
-    // Convert tap coordinates to grid coordinates
-    const gridX = Math.floor(tapX / this.gridSize);
-    const gridY = Math.floor((tapY - this.topBorderSize) / this.gridSize);
-
-    // Check if the tap is within the chaos monster's bounds
     if (this.chaosMonster) {
       const monsterPos = this.chaosMonster.pos;
-      const monsterGridX = Math.floor(monsterPos.x);
-      const monsterGridY = Math.floor(monsterPos.y);
-      const monsterRadius = (this.gridSize / 2) * CONFIG.TANK_RADIUS_SCALE;
-
-      // Calculate the pixel position of the monster for more precise tap detection
       const monsterPixelX = monsterPos.x * this.gridSize + this.gridSize / 2;
       const monsterPixelY =
         monsterPos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize;
+      const monsterRadius = (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
       const distance = Math.sqrt(
         (tapX - monsterPixelX) ** 2 + (tapY - monsterPixelY) ** 2
       );
@@ -95,10 +163,9 @@ class MazeMemoryGame {
           "Chaos monster tapped! Moving tank to monster position:",
           monsterPos
         );
-        // Move the tank directly to the monster's position
         this.tank.targetPos = monsterPos.copy();
-        this.tank.ignoreCollisions = true; // Allow the tank to move through walls
-        this.score.moves++; // Increment moves as this is a navigation action
+        this.tank.ignoreCollisions = true;
+        this.score.moves++;
       }
     }
   }
@@ -106,63 +173,21 @@ class MazeMemoryGame {
   initializeGameConstants() {
     const isLandscape = window.innerWidth > window.innerHeight;
     this.mazeWidth = isLandscape
-      ? this.CONFIG.MAX_GRID_WIDTH
-      : this.CONFIG.MIN_GRID_SIZE;
+      ? this.CONFIG.MAX_COLUMN_COUNT
+      : this.CONFIG.MIN_CELL_COUNT;
     this.mazeHeight = isLandscape
-      ? Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2)
-      : this.CONFIG.MIN_GRID_SIZE;
+      ? Math.floor(this.CONFIG.MAX_ROW_COUNT / 2)
+      : this.CONFIG.MIN_CELL_COUNT;
     this.level = this.level || 1;
     this.maxTargets = this.CONFIG.TARGETS_BASE;
   }
 
   initializeCanvas() {
-    this.canvas = document.getElementById("gameCanvas");
-    this.ctx = this.canvas.getContext("2d");
+    this.canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
+    this.ctx = this.canvas.getContext("2d")!;
     this.controlsHeight = this.CONFIG.CONTROLS_HEIGHT;
     this.topBorderSize = 0;
     this.updateCanvasSize();
-  }
-
-  updateCanvasSize() {
-    const windowWidth =
-      window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
-    const windowHeight =
-      window.innerHeight -
-      this.CONFIG.CANVAS_MARGIN.VERTICAL -
-      this.controlsHeight;
-
-    this.canvas.width = windowWidth;
-    this.bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_PERCENT;
-    this.topBorderSize = this.bannerHeight;
-
-    const maxGridHeight = windowHeight - this.bannerHeight;
-    const isLandscape = window.innerWidth > window.innerHeight;
-
-    // Adjust grid size to prioritize width in landscape
-    const gridSizeWidth = Math.floor(windowWidth / this.mazeWidth);
-    const gridSizeHeight = Math.floor(maxGridHeight / this.mazeHeight);
-    this.gridSize = Math.max(
-      this.CONFIG.GRID_SIZE,
-      Math.min(gridSizeWidth, gridSizeHeight)
-    );
-
-    // Set canvas height to fit grid and banner
-    this.canvas.height = this.mazeHeight * this.gridSize + this.bannerHeight;
-
-    this.canvas.dataset.bannerHeight = this.bannerHeight;
-
-    console.log(
-      "Canvas resized: width=",
-      this.canvas.width,
-      "height=",
-      this.canvas.height,
-      "gridSize=",
-      this.gridSize,
-      "mazeWidth=",
-      this.mazeWidth,
-      "mazeHeight=",
-      this.mazeHeight
-    );
   }
 
   initializeGameState() {
@@ -182,11 +207,11 @@ class MazeMemoryGame {
     this.powerUps = [];
     this.currentTarget = 1;
     this.showNumbers = true;
-    this.numberTimer = CONFIG.INITIAL_NUMBER_TIMER;
+    this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.keysPressed = {};
     this.score = this.score || {
       hits: 0,
-      lives: CONFIG.MAX_MISSES,
+      lives: this.CONFIG.MAX_MISSES,
       total: 0,
       moves: 0,
     };
@@ -201,52 +226,22 @@ class MazeMemoryGame {
     this.showNextTimer = 0;
   }
 
-  resetLevel(restartSameLevel = false) {
+  resetLevel(restartSameLevel: boolean = false) {
     if (this.gameOver && !restartSameLevel) return;
 
-    const isLandscape = window.innerWidth > window.innerHeight;
     const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE;
     const difficulty = Math.floor(
       (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     );
 
-    this.mazeWidth = isLandscape
-      ? Math.max(
-          this.CONFIG.MIN_GRID_SIZE,
-          Math.min(
-            this.CONFIG.MAX_GRID_WIDTH,
-            this.CONFIG.MIN_GRID_SIZE +
-              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
-          )
-        )
-      : Math.max(
-          this.CONFIG.MIN_GRID_SIZE,
-          Math.min(
-            this.CONFIG.MAX_GRID_WIDTH,
-            this.CONFIG.MIN_GRID_SIZE +
-              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
-          )
-        );
-    this.mazeHeight = isLandscape
-      ? Math.max(
-          this.CONFIG.MIN_GRID_SIZE,
-          Math.min(
-            Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2),
-            this.CONFIG.MIN_GRID_SIZE +
-              Math.floor(
-                ((difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT) /
-                  2
-              )
-          )
-        )
-      : Math.max(
-          this.CONFIG.MIN_GRID_SIZE,
-          Math.min(
-            this.CONFIG.MAX_GRID_HEIGHT,
-            this.CONFIG.MIN_GRID_SIZE +
-              (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
-          )
-        );
+    this.mazeWidth = Math.max(
+      this.CONFIG.MIN_CELL_COUNT,
+      Math.min(
+        this.CONFIG.MAX_COLUMN_COUNT,
+        this.CONFIG.MIN_CELL_COUNT +
+          (difficulty + levelCycle) * this.CONFIG.LEVEL_SIZE_INCREMENT
+      )
+    );
 
     this.updateCanvasSize();
 
@@ -255,7 +250,6 @@ class MazeMemoryGame {
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
 
-    // Conditionally spawn chaos monster
     if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL) {
       const monsterPos = this.getRandomOpenPosition();
       this.chaosMonster = {
@@ -297,9 +291,8 @@ class MazeMemoryGame {
 
     this.bullets = [];
 
-    // Power-up accumulation based on completed cycles
     if (this.level < this.CONFIG.POWER_UP_START_LEVEL) {
-      this.powerUps = []; // No power-ups before POWER_UP_START_LEVEL
+      this.powerUps = [];
     } else {
       const powerUpCount = Math.min(
         Math.floor(
@@ -331,7 +324,7 @@ class MazeMemoryGame {
       this.score.lives = this.CONFIG.MAX_MISSES;
       this.score.total = 0;
       this.score.hits = 0;
-      this.powerUps = []; // Ensure no power-ups at level 1 start
+      this.powerUps = [];
     } else if (this.levelCleared && !restartSameLevel) {
       this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
       const moveBonus = Math.max(0, 100 - this.score.moves * 2);
@@ -345,24 +338,59 @@ class MazeMemoryGame {
   }
 
   updateCanvasSize() {
-    const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
+    const windowWidth =
+      window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
-      window.innerHeight - CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
-    const maxSizeWidth = windowWidth;
-    const maxSizeHeight = windowHeight - this.bannerHeight;
-    this.canvas.width = maxSizeWidth;
-    this.bannerHeight = maxSizeWidth * CONFIG.BANNER_HEIGHT_PERCENT;
-    this.canvas.height = maxSizeHeight + this.bannerHeight;
-    this.gridSize = Math.floor(
-      Math.min(maxSizeWidth / this.mazeWidth, maxSizeHeight / this.mazeHeight)
+      window.innerHeight -
+      this.CONFIG.CANVAS_MARGIN.VERTICAL -
+      this.controlsHeight;
+
+    this.bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;
+    const maxGridHeight = windowHeight - this.bannerHeight;
+
+    const cellSizeWidth = Math.floor(windowWidth / this.mazeWidth);
+    const cellSizeHeight = Math.floor(maxGridHeight / this.mazeHeight);
+    this.gridSize = Math.max(
+      this.CONFIG.CELL_SIZE_DEFAULT,
+      Math.min(cellSizeWidth, cellSizeHeight)
     );
+
+    this.mazeWidth = Math.min(
+      this.CONFIG.MAX_COLUMN_COUNT,
+      Math.floor(windowWidth / this.gridSize)
+    );
+    this.mazeHeight = Math.min(
+      this.CONFIG.MAX_ROW_COUNT,
+      Math.floor(maxGridHeight / this.gridSize)
+    );
+
+    this.mazeWidth = Math.max(this.CONFIG.MIN_CELL_COUNT, this.mazeWidth);
+    this.mazeHeight = Math.max(this.CONFIG.MIN_CELL_COUNT, this.mazeHeight);
+
+    this.canvas.width = this.mazeWidth * this.gridSize;
+    this.bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
     this.topBorderSize = this.bannerHeight;
-    this.canvas.dataset.bannerHeight = this.bannerHeight;
+    this.canvas.height = this.mazeHeight * this.gridSize + this.bannerHeight;
+
+    this.canvas.dataset.bannerHeight = this.bannerHeight.toString();
+
+    console.log(
+      "Canvas resized: width=",
+      this.canvas.width,
+      "height=",
+      this.canvas.height,
+      "gridSize=",
+      this.gridSize,
+      "mazeWidth=",
+      this.mazeWidth,
+      "mazeHeight=",
+      this.mazeHeight
+    );
   }
 
-  generateMaze(width, height) {
+  generateMaze(width: number, height: number): number[][] {
     const maze = Array(height)
-      .fill()
+      .fill(null)
       .map(() => Array(width).fill(1));
     const directions = [
       [0, 2],
@@ -370,13 +398,13 @@ class MazeMemoryGame {
       [0, -2],
       [-2, 0],
     ];
-    const shuffle = (array) => {
+    const shuffle = (array: number[][]) => {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [array[i], array[j]] = [array[j], array[i]];
       }
     };
-    const carve = (x, y) => {
+    const carve = (x: number, y: number) => {
       maze[y][x] = 0;
       const dirs = directions.slice();
       shuffle(dirs);
@@ -402,18 +430,28 @@ class MazeMemoryGame {
     return maze;
   }
 
-  getRandomOpenPosition() {
-    let pos;
+  getRandomOpenPosition(): Vector2D {
+    let pos: Vector2D;
+    let attempts = 0;
+    const maxAttempts = 13;
+
     do {
       pos = new Vector2D(
         Math.floor(Math.random() * this.mazeWidth),
-        Math.floor(Math.random() * (this.mazeHeight - 1))
+        Math.floor(Math.random() * this.mazeHeight)
       );
-    } while (this.maze[pos.y][pos.x] !== 0);
+      attempts++;
+    } while (this.maze[pos.y][pos.x] !== 0 && attempts < maxAttempts);
+
+    console.log(
+      `getRandomOpenPosition: Found position (${pos.x}, ${
+        pos.y
+      }) after ${attempts} attempts, open: ${this.maze[pos.y][pos.x] === 0}`
+    );
     return pos;
   }
 
-  getRandomColor() {
+  getRandomColor(): string {
     const niceColors = [
       "#8B4513",
       "#483D8B",
@@ -452,7 +490,7 @@ class MazeMemoryGame {
     }
   }
 
-  isValidMove(pos) {
+  isValidMove(pos: Vector2D): boolean {
     return (
       pos.x >= 0 &&
       pos.x < this.mazeWidth &&
@@ -462,7 +500,7 @@ class MazeMemoryGame {
     );
   }
 
-  isIntersection(pos, fromDir) {
+  isIntersection(pos: Vector2D, fromDir: string): boolean {
     const directions = [
       { vec: new Vector2D(0, -1), dir: "up" },
       { vec: new Vector2D(0, 1), dir: "down" },
@@ -477,8 +515,8 @@ class MazeMemoryGame {
     return openPaths > 1;
   }
 
-  findNearestTarget(pos) {
-    let nearestTarget = null;
+  findNearestTarget(pos: Vector2D): any {
+    let nearestTarget: Target | null = null;
     let minDistance = Infinity;
     this.targets.forEach((t) => {
       if (!t.hit) {
@@ -492,7 +530,7 @@ class MazeMemoryGame {
     return nearestTarget;
   }
 
-  update(deltaTime) {
+  update(deltaTime: number) {
     if (this.levelCleared) return;
 
     if (this.showNumbers && this.numberTimer > 0) {
@@ -540,19 +578,19 @@ class MazeMemoryGame {
     if (this.score.lives <= 0) {
       if (!this.gameOver) {
         this.gameOver = true;
-        this.gameOverDelay = CONFIG.GAME_OVER_DELAY;
+        this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY;
       }
       this.gameOverDelay -= deltaTime * 1000;
       if (this.gameOverDelay <= 0) {
         this.gameOver = false;
-        this.score.lives = CONFIG.MAX_MISSES;
+        this.score.lives = this.CONFIG.MAX_MISSES;
         if (this.level > 1) this.level--;
         this.resetLevel(true);
         this.saveGameState();
       }
     } else if (this.targets.every((t) => t.hit)) {
       this.levelCleared = true;
-      setTimeout(() => this.resetLevel(), CONFIG.LEVEL_CLEAR_DELAY);
+      setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY);
     }
   }
 
@@ -574,6 +612,10 @@ class MazeMemoryGame {
       this.level = gameState.level;
       this.score.total = gameState.score.total;
       this.score.hits = gameState.score.hits;
+    } else {
+      this.level = 1;
+      this.score.total = 0;
+      this.score.hits = 0;
     }
   }
 
@@ -581,14 +623,14 @@ class MazeMemoryGame {
     localStorage.removeItem("tankMemoryMazeState");
   }
 
-  gameLoop(currentTime = performance.now()) {
+  gameLoop(currentTime: number = performance.now()) {
     const deltaTime = currentTime - this.lastTime;
     this.lastTime = currentTime;
     this.accumulatedTime += deltaTime;
 
-    while (this.accumulatedTime >= CONFIG.FRAME_DELTA) {
-      this.update(CONFIG.FRAME_DELTA / 1000);
-      this.accumulatedTime -= CONFIG.FRAME_DELTA;
+    while (this.accumulatedTime >= this.CONFIG.FRAME_DELTA) {
+      this.update(this.CONFIG.FRAME_DELTA / 1000);
+      this.accumulatedTime -= this.CONFIG.FRAME_DELTA;
     }
 
     this.renderEngine.draw();
