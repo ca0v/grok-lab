@@ -255,7 +255,7 @@ class MazeMemoryGame {
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
 
-    // Conditionally spawn chaos monster after CHAOS_MONSTER_START_LEVEL
+    // Conditionally spawn chaos monster
     if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL) {
       const monsterPos = this.getRandomOpenPosition();
       this.chaosMonster = {
@@ -266,7 +266,7 @@ class MazeMemoryGame {
         target: null,
       };
     } else {
-      this.chaosMonster = null; // No chaos monster before the start level
+      this.chaosMonster = null;
     }
 
     this.maxTargets =
@@ -296,20 +296,25 @@ class MazeMemoryGame {
     }
 
     this.bullets = [];
-    this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
-      let pos;
-      do {
-        pos = this.getRandomOpenPosition();
-      } while (
-        this.targets.some((t) => t.pos.equals(pos)) ||
-        pos.equals(this.tank.pos) ||
-        (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
-        this.powerUps.some((p) => p.pos.equals(pos))
-      );
-      return { pos: pos, opacity: 0, revealStart: null };
-    });
 
-    this.powerUps[this.powerUps.length - 1].revealStart = performance.now();
+    // Conditionally spawn power-ups one level after chaos monster
+    if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL + 1) {
+      this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
+        let pos;
+        do {
+          pos = this.getRandomOpenPosition();
+        } while (
+          this.targets.some((t) => t.pos.equals(pos)) ||
+          pos.equals(this.tank.pos) ||
+          (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
+          this.powerUps.some((p) => p.pos.equals(pos))
+        );
+        return { pos: pos, opacity: 0, revealStart: null };
+      });
+      this.powerUps[this.powerUps.length - 1].revealStart = performance.now();
+    } else {
+      this.powerUps = []; // No power-ups before level 7
+    }
 
     this.currentTarget = 1;
     this.showNumbers = true;
@@ -331,6 +336,7 @@ class MazeMemoryGame {
     this.levelCleared = false;
     this.saveGameState();
   }
+
   updateCanvasSize() {
     const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
