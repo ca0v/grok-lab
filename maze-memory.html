@@ -550,6 +550,7 @@
                     case 'marker': {
                         if (!this.marker) {
                             this.marker = this.tank.targetPos.copy();
+                            this.score.moves++;
                         } else {
                             this.tank.targetPos = this.marker.copy();
                             this.tank.ignoreCollisions = true;
