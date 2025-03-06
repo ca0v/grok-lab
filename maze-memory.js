@@ -83,6 +83,12 @@ class MazeMemoryGame {
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
+
+    if (window.innerWidth <= 480) {
+      // Threshold for small screens (e.g., phones)
+      this.CONFIG.MAX_GRID_SIZE = 11;
+    }
+
     this.initializeGameConstants();
 
     // Initialize helper classes
@@ -98,7 +104,7 @@ class MazeMemoryGame {
     this.accumulatedTime = 0;
 
     // Adjust visibility based on touch support
-    const isTouchSupported = 'ontouchstart' in window;
+    const isTouchSupported = "ontouchstart" in window;
     const joystickContainer = document.getElementById("joystick-container");
     const bottomButtons = document.getElementById("bottom-buttons");
 
@@ -182,10 +188,13 @@ class MazeMemoryGame {
     if (this.gameOver && !restartSameLevel) return;
 
     const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE;
-    const difficulty = Math.floor((this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE);
+    const difficulty = Math.floor(
+      (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
+    );
     this.mazeSize = Math.min(
       this.CONFIG.MAX_GRID_SIZE,
-      this.CONFIG.MIN_GRID_SIZE + (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      this.CONFIG.MIN_GRID_SIZE +
+        (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
     );
     this.updateCanvasSize();
 
@@ -204,7 +213,8 @@ class MazeMemoryGame {
     };
 
     this.maxTargets =
-      this.CONFIG.TARGETS_BASE + Math.floor((this.level - 1) / this.CONFIG.TARGETS_PER_LEVEL);
+      this.CONFIG.TARGETS_BASE +
+      Math.floor((this.level - 1) / this.CONFIG.TARGETS_PER_LEVEL);
     this.targets = [];
     this.assignTargetColors();
     for (let i = 1; i <= this.maxTargets; i++) {
@@ -264,9 +274,12 @@ class MazeMemoryGame {
   }
 
   updateCanvasSize() {
-    const windowWidth = window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
+    const windowWidth =
+      window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
-      window.innerHeight - this.CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
+      window.innerHeight -
+      this.CONFIG.CANVAS_MARGIN.VERTICAL -
+      this.controlsHeight;
     const maxSize = Math.min(windowWidth, windowHeight);
     this.canvas.width = maxSize;
     this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT;
@@ -278,8 +291,15 @@ class MazeMemoryGame {
 
   generateMaze() {
     const size = this.mazeSize;
-    const maze = Array(size).fill().map(() => Array(size).fill(1));
-    const directions = [[0, 2], [2, 0], [0, -2], [-2, 0]];
+    const maze = Array(size)
+      .fill()
+      .map(() => Array(size).fill(1));
+    const directions = [
+      [0, 2],
+      [2, 0],
+      [0, -2],
+      [-2, 0],
+    ];
     const shuffle = (array) => {
       for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -293,7 +313,13 @@ class MazeMemoryGame {
       for (let [dy, dx] of dirs) {
         const newY = y + dy;
         const newX = x + dx;
-        if (newY > 0 && newY < size - 1 && newX > 0 && newX < size - 1 && maze[newY][newX] === 1) {
+        if (
+          newY > 0 &&
+          newY < size - 1 &&
+          newX > 0 &&
+          newX < size - 1 &&
+          maze[newY][newX] === 1
+        ) {
           maze[y + dy / 2][x + dx / 2] = 0;
           carve(newX, newY);
         }
@@ -319,10 +345,30 @@ class MazeMemoryGame {
 
   getRandomColor() {
     const niceColors = [
-      "#8B4513", "#483D8B", "#A52A2A", "#4B0082", "#8A2BE2", "#9932CC", "#800080",
-      "#B22222", "#4682B4", "#191970", "#9B30FF", "#CD5C5C", "#9400D3", "#FF4500",
-      "#8B0000", "#4169E1", "#C71585", "#00008B", "#DC143C", "#6A5ACD", "#FF6347",
-      "#7B68EE", "#DAA520", "#BA55D3",
+      "#8B4513",
+      "#483D8B",
+      "#A52A2A",
+      "#4B0082",
+      "#8A2BE2",
+      "#9932CC",
+      "#800080",
+      "#B22222",
+      "#4682B4",
+      "#191970",
+      "#9B30FF",
+      "#CD5C5C",
+      "#9400D3",
+      "#FF4500",
+      "#8B0000",
+      "#4169E1",
+      "#C71585",
+      "#00008B",
+      "#DC143C",
+      "#6A5ACD",
+      "#FF6347",
+      "#7B68EE",
+      "#DAA520",
+      "#BA55D3",
     ];
     const color = niceColors[this.colorIndex % niceColors.length];
     this.colorIndex++;
