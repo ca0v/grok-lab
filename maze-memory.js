@@ -3,91 +3,24 @@ import { Vector2D } from "./Vector2D.js";
 import { MovementEngine } from "./MovementEngine.js";
 import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
+import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
 
-// maze-memory.js
 function range(n) {
   return Array.from({ length: n }, (_, i) => i);
 }
 
 class MazeMemoryGame {
-  CONFIG = {
-    MAX_POWER_UP_COUNT: 5,
-    BANNER_HEIGHT_PERCENT: 0.12,
-    SCOREBOARD_FONT_SCALE: 3,
-    MAZE_WALL_COLOR: "gray",
-    TANK_COLOR: "green",
-    BULLET_COLOR: "red",
-    POWER_UP_COLOR: "yellow",
-    TARGET_OUTLINE_COLOR: "black",
-    CHAOS_MONSTER_COLOR: "rgba(0, 255, 0, 0.5)",
-    GRID_SIZE: 40,
-    CANVAS_MARGIN: { HORIZONTAL: 40, VERTICAL: 60 },
-    MAX_MISSES: 5,
-    FRAME_DELTA: 1000 / 30,
-    BULLET_SPEED: 12,
-    TANK_SPEED: 6,
-    CHAOS_MONSTER_SPEED: 4,
-    MIN_GRID_SIZE: 5,
-    MAX_GRID_WIDTH: 15,
-    MAX_GRID_HEIGHT: 15,
-    LEVELS_PER_CYCLE: 3,
-    POWER_UP_REVEAL_DURATION: 3000,
-    INITIAL_NUMBER_TIMER: 5000,
-    GAME_OVER_DELAY: 3000,
-    LEVEL_CLEAR_DELAY: 2000,
-    CONTROLS_HEIGHT: 200,
-    BULLET_SIZE: 5,
-    TANK_RADIUS_SCALE: 0.5,
-    TARGET_RADIUS_SCALE: 0.8,
-    TARGET_OUTLINE_WIDTH: 2,
-    POWER_UP_RADIUS_SCALE: 0.25,
-    ROTATION_DURATION: 50,
-    FLASH_DURATION: 1000,
-    MAZE_SIZE_INCREMENT: 2,
-    TARGETS_BASE: 3,
-    TARGETS_PER_LEVEL: 3,
-    MESSAGE_FONT_SCALE: 20,
-    MARKER_FONT_SIZE: 30,
-    TANK_FONT_SIZE: 20,
-  };
-
-  INPUT_MAP = {
-    w: { action: "moveFar", dir: "up" },
-    s: { action: "moveFar", dir: "down" },
-    a: { action: "moveFar", dir: "left" },
-    d: { action: "moveFar", dir: "right" },
-    ArrowUp: { action: "moveOne", dir: "up" },
-    ArrowDown: { action: "moveOne", dir: "down" },
-    ArrowLeft: { action: "moveOne", dir: "left" },
-    ArrowRight: { action: "moveOne", dir: "right" },
-    " ": { action: "shoot" },
-    x: { action: "marker" },
-    m: { action: "marker" },
-    "?": { action: "peek" },
-    p: { action: "peek" },
-    up: { action: "move", dir: "up" },
-    down: { action: "move", dir: "down" },
-    left: { action: "move", dir: "left" },
-    right: { action: "move", dir: "right" },
-    marker: { action: "marker" },
-    peek: { action: "peek" },
-  };
-
-  DIRECTION_VECTORS = {
-    up: new Vector2D(0, -1),
-    down: new Vector2D(0, 1),
-    left: new Vector2D(-1, 0),
-    right: new Vector2D(1, 0),
-  };
-
   constructor() {
+    this.CONFIG = CONFIG; // Assign the imported CONFIG to a class property
+    this.INPUT_MAP = INPUT_MAP; // Assign the imported INPUT_MAP to a class property
+    this.DIRECTION_VECTORS = DIRECTION_VECTORS; // Assign the imported DIRECTION_VECTORS to a class property
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
 
     // Adjust MAX_GRID_WIDTH based on screen size
     if (window.innerWidth <= 480) {
-      this.CONFIG.MAX_GRID_WIDTH = 11;
+      CONFIG.MAX_GRID_WIDTH = 11;
     }
 
     this.initializeGameConstants();
@@ -153,7 +86,7 @@ class MazeMemoryGame {
       const monsterPos = this.chaosMonster.pos;
       const monsterGridX = Math.floor(monsterPos.x);
       const monsterGridY = Math.floor(monsterPos.y);
-      const monsterRadius = (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+      const monsterRadius = (this.gridSize / 2) * CONFIG.TANK_RADIUS_SCALE;
 
       // Calculate the pixel position of the monster for more precise tap detection
       const monsterPixelX = monsterPos.x * this.gridSize + this.gridSize / 2;
@@ -177,17 +110,17 @@ class MazeMemoryGame {
   }
 
   initializeGameConstants() {
-    this.mazeWidth = this.CONFIG.MIN_GRID_SIZE;
-    this.mazeHeight = this.CONFIG.MIN_GRID_SIZE;
+    this.mazeWidth = CONFIG.MIN_GRID_SIZE;
+    this.mazeHeight = CONFIG.MIN_GRID_SIZE;
     this.level = this.level || 1;
-    this.maxTargets = this.CONFIG.TARGETS_BASE;
+    this.maxTargets = CONFIG.TARGETS_BASE;
   }
 
   initializeCanvas() {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
-    this.gridSize = this.CONFIG.GRID_SIZE;
-    this.controlsHeight = this.CONFIG.CONTROLS_HEIGHT;
+    this.gridSize = CONFIG.GRID_SIZE;
+    this.controlsHeight = CONFIG.CONTROLS_HEIGHT;
     this.topBorderSize = 0;
     this.updateCanvasSize();
   }
@@ -209,11 +142,11 @@ class MazeMemoryGame {
     this.powerUps = [];
     this.currentTarget = 1;
     this.showNumbers = true;
-    this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
+    this.numberTimer = CONFIG.INITIAL_NUMBER_TIMER;
     this.keysPressed = {};
     this.score = this.score || {
       hits: 0,
-      lives: this.CONFIG.MAX_MISSES,
+      lives: CONFIG.MAX_MISSES,
       total: 0,
       moves: 0,
     };
@@ -231,19 +164,17 @@ class MazeMemoryGame {
   resetLevel(restartSameLevel = false) {
     if (this.gameOver && !restartSameLevel) return;
 
-    const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE;
-    const difficulty = Math.floor(
-      (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
-    );
+    const levelCycle = (this.level - 1) % CONFIG.LEVELS_PER_CYCLE;
+    const difficulty = Math.floor((this.level - 1) / CONFIG.LEVELS_PER_CYCLE);
     this.mazeWidth = Math.min(
-      this.CONFIG.MAX_GRID_WIDTH,
-      this.CONFIG.MIN_GRID_SIZE +
-        (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      CONFIG.MAX_GRID_WIDTH,
+      CONFIG.MIN_GRID_SIZE +
+        (difficulty + levelCycle) * CONFIG.MAZE_SIZE_INCREMENT
     );
     this.mazeHeight = Math.min(
-      this.CONFIG.MAX_GRID_HEIGHT,
-      this.CONFIG.MIN_GRID_SIZE +
-        (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      CONFIG.MAX_GRID_HEIGHT,
+      CONFIG.MIN_GRID_SIZE +
+        (difficulty + levelCycle) * CONFIG.MAZE_SIZE_INCREMENT
     );
     this.updateCanvasSize();
 
@@ -256,14 +187,14 @@ class MazeMemoryGame {
     this.chaosMonster = {
       pos: monsterPos.copy(),
       origin: monsterPos.copy(),
-      speed: this.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
+      speed: CONFIG.CHAOS_MONSTER_SPEED + difficulty,
       holdingTarget: null,
       target: null,
     };
 
     this.maxTargets =
-      this.CONFIG.TARGETS_BASE +
-      Math.floor((this.level - 1) / this.CONFIG.TARGETS_PER_LEVEL);
+      CONFIG.TARGETS_BASE +
+      Math.floor((this.level - 1) / CONFIG.TARGETS_PER_LEVEL);
     this.targets = [];
     this.assignTargetColors();
     for (let i = 1; i <= this.maxTargets; i++) {
@@ -286,7 +217,7 @@ class MazeMemoryGame {
     this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
     this.bullets = [];
-    this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
+    this.powerUps = range(CONFIG.MAX_POWER_UP_COUNT).map(() => {
       let pos;
       do {
         pos = this.getRandomOpenPosition();
@@ -303,15 +234,15 @@ class MazeMemoryGame {
 
     this.currentTarget = 1;
     this.showNumbers = true;
-    this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
+    this.numberTimer = CONFIG.INITIAL_NUMBER_TIMER;
     this.marker = null;
 
     if (this.level === 1 && !localStorage.getItem("tankMemoryMazeState")) {
-      this.score.lives = this.CONFIG.MAX_MISSES;
+      this.score.lives = CONFIG.MAX_MISSES;
       this.score.total = 0;
       this.score.hits = 0;
     } else if (this.levelCleared && !restartSameLevel) {
-      this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
+      this.score.lives = Math.min(this.score.lives + 1, CONFIG.MAX_MISSES);
       const moveBonus = Math.max(0, 100 - this.score.moves * 2);
       this.score.total += this.score.hits * this.score.lives + moveBonus;
       this.level++;
@@ -323,16 +254,13 @@ class MazeMemoryGame {
   }
 
   updateCanvasSize() {
-    const windowWidth =
-      window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
+    const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
-      window.innerHeight -
-      this.CONFIG.CANVAS_MARGIN.VERTICAL -
-      this.controlsHeight;
+      window.innerHeight - CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
     const maxSizeWidth = windowWidth;
     const maxSizeHeight = windowHeight - this.bannerHeight;
     this.canvas.width = maxSizeWidth;
-    this.bannerHeight = maxSizeWidth * this.CONFIG.BANNER_HEIGHT_PERCENT;
+    this.bannerHeight = maxSizeWidth * CONFIG.BANNER_HEIGHT_PERCENT;
     this.canvas.height = maxSizeHeight + this.bannerHeight;
     this.gridSize = Math.floor(
       Math.min(maxSizeWidth / this.mazeWidth, maxSizeHeight / this.mazeHeight)
@@ -521,19 +449,19 @@ class MazeMemoryGame {
     if (this.score.lives <= 0) {
       if (!this.gameOver) {
         this.gameOver = true;
-        this.gameOverDelay = this.CONFIG.GAME_OVER_DELAY;
+        this.gameOverDelay = CONFIG.GAME_OVER_DELAY;
       }
       this.gameOverDelay -= deltaTime * 1000;
       if (this.gameOverDelay <= 0) {
         this.gameOver = false;
-        this.score.lives = this.CONFIG.MAX_MISSES;
+        this.score.lives = CONFIG.MAX_MISSES;
         if (this.level > 1) this.level--;
         this.resetLevel(true);
         this.saveGameState();
       }
     } else if (this.targets.every((t) => t.hit)) {
       this.levelCleared = true;
-      setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY);
+      setTimeout(() => this.resetLevel(), CONFIG.LEVEL_CLEAR_DELAY);
     }
   }
 
@@ -567,9 +495,9 @@ class MazeMemoryGame {
     this.lastTime = currentTime;
     this.accumulatedTime += deltaTime;
 
-    while (this.accumulatedTime >= this.CONFIG.FRAME_DELTA) {
-      this.update(this.CONFIG.FRAME_DELTA / 1000);
-      this.accumulatedTime -= this.CONFIG.FRAME_DELTA;
+    while (this.accumulatedTime >= CONFIG.FRAME_DELTA) {
+      this.update(CONFIG.FRAME_DELTA / 1000);
+      this.accumulatedTime -= CONFIG.FRAME_DELTA;
     }
 
     this.renderEngine.draw();
