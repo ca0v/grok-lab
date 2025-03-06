@@ -297,24 +297,31 @@ class MazeMemoryGame {
 
     this.bullets = [];
 
-    // Conditionally spawn power-ups one level after chaos monster
-    if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL + 1) {
-      this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
-        let pos;
-        do {
-          pos = this.getRandomOpenPosition();
-        } while (
-          this.targets.some((t) => t.pos.equals(pos)) ||
-          pos.equals(this.tank.pos) ||
-          (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
-          this.powerUps.some((p) => p.pos.equals(pos))
-        );
-        return { pos: pos, opacity: 0, revealStart: null };
-      });
-      this.powerUps[this.powerUps.length - 1].revealStart = performance.now();
-    } else {
+    // Power-up accumulation logic
+    if (this.level < this.CONFIG.POWER_UP_START_LEVEL) {
       this.powerUps = []; // No power-ups before level 7
+    } else if (
+      this.levelCleared &&
+      !restartSameLevel &&
+      this.powerUps.length < this.CONFIG.MAX_POWER_UP_COUNT
+    ) {
+      // Add one new power-up when clearing a level, if under max
+      let pos;
+      do {
+        pos = this.getRandomOpenPosition();
+      } while (
+        this.targets.some((t) => t.pos.equals(pos)) ||
+        pos.equals(this.tank.pos) ||
+        (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
+        this.powerUps.some((p) => p.pos.equals(pos))
+      );
+      this.powerUps.push({
+        pos: pos,
+        opacity: 0,
+        revealStart: performance.now(),
+      });
     }
+    // Otherwise, keep existing powerUps unchanged
 
     this.currentTarget = 1;
     this.showNumbers = true;
@@ -325,6 +332,7 @@ class MazeMemoryGame {
       this.score.lives = this.CONFIG.MAX_MISSES;
       this.score.total = 0;
       this.score.hits = 0;
+      this.powerUps = []; // Ensure no power-ups at level 1 start
     } else if (this.levelCleared && !restartSameLevel) {
       this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
       const moveBonus = Math.max(0, 100 - this.score.moves * 2);
