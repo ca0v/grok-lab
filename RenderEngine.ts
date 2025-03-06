@@ -51,23 +51,40 @@ export class RenderEngine {
         this.game.gridSize / 2 +
         this.game.topBorderSize
     );
-    this.ctx.rotate(this.game.tank.currentAngle);
-    const radius = (this.game.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+    this.ctx.rotate(this.game.tank.currentAngle + Math.PI / 2); // Add 90 degrees clockwise
+
+    const tankSize = this.game.gridSize * this.CONFIG.TANK_RADIUS_SCALE; // Base size (e.g., 0.5 * gridSize)
+    const bodyWidth = tankSize * 0.8; // Narrower body
+    const bodyHeight = tankSize * 1.2; // Taller body
+    const treadWidth = tankSize * 0.3; // Narrow treads
+    const treadHeight = bodyHeight * 0.6; // Shorter treads
+    const barrelLength = tankSize * 0.6; // Vertical barrel
+    const barrelWidth = tankSize * 0.2; // Thick barrel
+
+    // Draw body (central rectangle)
+    this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "green" or blue
+    this.ctx.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
+
+    // Draw left tread
     this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
-    this.ctx.beginPath();
-    this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    this.ctx.fill();
+    this.ctx.fillRect(
+      -bodyWidth / 2 - treadWidth,
+      -treadHeight / 2,
+      treadWidth,
+      treadHeight
+    );
 
-    this.ctx.fillStyle = "black";
-    this.ctx.beginPath();
-    this.ctx.arc(radius * 0.75, 0, radius / 4, 0, Math.PI * 2);
-    this.ctx.fill();
+    // Draw right tread
+    this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
+    this.ctx.fillRect(bodyWidth / 2, -treadHeight / 2, treadWidth, treadHeight);
 
-    this.ctx.font = `${this.CONFIG.TANK_FONT_SIZE}px Arial`;
-    this.ctx.fillStyle = "white";
-    this.ctx.textAlign = "center";
-    this.ctx.textBaseline = "middle";
-    this.ctx.fillText("T", 0, 0);
+    // Draw barrel (vertical line upward, now right after rotation)
+    this.ctx.strokeStyle = this.CONFIG.TANK_COLOR;
+    this.ctx.lineWidth = barrelWidth;
+    this.ctx.beginPath();
+    this.ctx.moveTo(0, -bodyHeight / 2);
+    this.ctx.lineTo(0, -bodyHeight / 2 - barrelLength);
+    this.ctx.stroke();
 
     this.ctx.restore();
   }

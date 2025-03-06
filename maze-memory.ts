@@ -491,12 +491,14 @@ export class MazeMemoryGame {
   }
 
   isValidMove(pos: Vector2D): boolean {
+    if (this.tank.ignoreCollisions) return true; // Bypass check during wall traversal
+    const { x, y } = pos.round();
     return (
-      pos.x >= 0 &&
-      pos.x < this.mazeWidth &&
-      pos.y >= 0 &&
-      pos.y < this.mazeHeight &&
-      this.maze[pos.y][pos.x] === 0
+      x >= 0 &&
+      x < this.mazeWidth &&
+      y >= 0 &&
+      y < this.mazeHeight &&
+      this.maze[y][x] === 0
     );
   }
 

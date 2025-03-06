@@ -108,8 +108,8 @@ export class EventHandler {
     if (this.game.gameOver || this.game.levelCleared) return;
 
     if (input.action === "moveFar" && input.dir) {
-      tank.targetPos = this.game.movementEngine.moveFar(tank.pos, input.dir);
-      tank.ignoreCollisions = false;
+      tank.targetPos = this.game.movementEngine.moveFar(tank.targetPos, input.dir);
+      tank.ignoreCollisions = false; // Reset unless moving to marker
       this.game.score.moves++;
     } else if (input.action === "moveOne" && input.dir) {
       const newPos = tank.pos.add(
@@ -148,7 +148,7 @@ export class EventHandler {
       input.action !== "peek"
     ) {
       tank.targetPos = this.game.marker.copy();
-      tank.ignoreCollisions = true;
+      tank.ignoreCollisions = true; // Allow wall traversal to marker
       this.game.score.moves++;
       this.game.marker = null;
     }

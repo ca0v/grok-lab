@@ -9,15 +9,26 @@ export class MovementEngine {
   }
 
   updateTank(deltaTime: number) {
+    const tank = this.game.tank;
     const speed = this.game.CONFIG.TANK_SPEED;
-    const dx = this.game.tank.targetPos.x - this.game.tank.pos.x;
-    const dy = this.game.tank.targetPos.y - this.game.tank.pos.y;
-
+    const dx = tank.targetPos.x - tank.pos.x;
+    const dy = tank.targetPos.y - tank.pos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+
     if (distance > 0.01) {
       const moveDistance = Math.min(distance, speed * deltaTime);
-      this.game.tank.pos.x += (dx / distance) * moveDistance;
-      this.game.tank.pos.y += (dy / distance) * moveDistance;
+      const moveX = (dx / distance) * moveDistance;
+      const moveY = (dy / distance) * moveDistance;
+
+      // Update position without snapping mid-move
+      tank.pos.x += moveX;
+      tank.pos.y += moveY;
+
+      // Snap only when very close to target, preserving animation
+      if (distance < speed * deltaTime * 0.5) {
+        tank.pos.x = tank.targetPos.x;
+        tank.pos.y = tank.targetPos.y;
+      }
 
       const dir =
         Math.abs(dx) > Math.abs(dy)
@@ -27,31 +38,26 @@ export class MovementEngine {
           : dy > 0
           ? "down"
           : "up";
-      const currentAngle = this.game.tank.currentAngle;
+      const currentAngle = tank.currentAngle;
       const targetAngle = this.directionToAngle(dir);
 
       if (currentAngle !== targetAngle) {
-        if (this.game.tank.rotationStart === null) {
-          this.game.tank.rotationStart = performance.now();
-        }
-        const elapsed = performance.now() - this.game.tank.rotationStart;
+        if (tank.rotationStart === null) tank.rotationStart = performance.now();
+        const elapsed = performance.now() - tank.rotationStart!;
         const duration = this.game.CONFIG.ROTATION_DURATION;
         const progress = Math.min(elapsed / duration, 1);
-        this.game.tank.currentAngle = this.lerpAngle(
-          currentAngle,
-          targetAngle,
-          progress
-        );
+        tank.currentAngle = this.lerpAngle(currentAngle, targetAngle, progress);
         if (progress === 1) {
-          this.game.tank.rotationStart = null;
-          this.game.tank.currentAngle = targetAngle;
+          tank.rotationStart = null;
+          tank.currentAngle = targetAngle;
         }
       }
     } else {
-      this.game.tank.pos.x = this.game.tank.targetPos.x;
-      this.game.tank.pos.y = this.game.tank.targetPos.y;
-      this.game.tank.rotationStart = null;
+      tank.pos.x = tank.targetPos.x;
+      tank.pos.y = tank.targetPos.y;
+      tank.rotationStart = null;
     }
+    console.log(`Tank pos: (${tank.pos.x}, ${tank.pos.y})`);
   }
 
   updateChaosMonster(deltaTime: number) {
@@ -87,27 +93,41 @@ export class MovementEngine {
         this.game.DIRECTION_VECTORS[
           bullet.dir as keyof typeof this.game.DIRECTION_VECTORS
         ];
-      bullet.pos.x += dirVec.x * this.game.CONFIG.BULLET_SPEED * deltaTime;
-      bullet.pos.y += dirVec.y * this.game.CONFIG.BULLET_SPEED * deltaTime;
+      const lastPos = bullet.pos.copy(); // Previous position
+      const moveStep = dirVec
+        .copy()
+        .scale(this.game.CONFIG.BULLET_SPEED * deltaTime); // Vector movement
+      bullet.pos = bullet.pos.add(moveStep);
 
-      const bulletGridX = Math.round(bullet.pos.x);
-      const bulletGridY = Math.round(bullet.pos.y);
+      const bulletGridPos = new Vector2D(
+        Math.round(bullet.pos.x),
+        Math.round(bullet.pos.y)
+      );
       if (
-        bulletGridX < 0 ||
-        bulletGridX >= this.game.mazeWidth ||
-        bulletGridY < 0 ||
-        bulletGridY >= this.game.mazeHeight ||
-        this.game.maze[bulletGridY][bulletGridX] === 1
+        bulletGridPos.x < 0 ||
+        bulletGridPos.x >= this.game.mazeWidth ||
+        bulletGridPos.y < 0 ||
+        bulletGridPos.y >= this.game.mazeHeight ||
+        this.game.maze[bulletGridPos.y][bulletGridPos.x] === 1
       ) {
         return false;
       }
 
       const hitTarget = this.game.targets.find((target) => {
         if (target.hit) return false;
-        const dx = bullet.pos.x - target.pos.x;
-        const dy = bullet.pos.y - target.pos.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance < this.game.CONFIG.TARGET_RADIUS_SCALE / 2;
+        const bulletToTarget = bullet.pos.subtract(target.pos);
+        const distance = bulletToTarget.distanceTo(new Vector2D(0, 0)); // Length from origin
+        const hitRadius = this.game.CONFIG.TARGET_RADIUS_SCALE; // Full radius (0.8)
+
+        // Check if bullet passed through target this frame
+        const lastBulletToTarget = lastPos.subtract(target.pos);
+        const lastDistance = lastBulletToTarget.distanceTo(new Vector2D(0, 0));
+        const crossedTarget =
+          (lastDistance > hitRadius && distance <= hitRadius) ||
+          (lastDistance <= hitRadius && distance > hitRadius) ||
+          distance <= hitRadius;
+
+        return crossedTarget;
       });
 
       if (hitTarget) {
@@ -126,11 +146,10 @@ export class MovementEngine {
       }
 
       const hitPowerUp = this.game.powerUps.find((p) => {
-        const dx = bullet.pos.x - p.pos.x;
-        const dy = bullet.pos.y - p.pos.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const bulletToPowerUp = bullet.pos.subtract(p.pos);
+        const distance = bulletToPowerUp.distanceTo(new Vector2D(0, 0));
         return (
-          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE / 2 &&
+          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE &&
           p.opacity === 1
         );
       });
@@ -148,6 +167,7 @@ export class MovementEngine {
       return true;
     });
   }
+  
 
   moveFar(targetPos: Vector2D, dir: string): Vector2D {
     let newPos = targetPos.copy();
