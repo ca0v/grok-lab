@@ -297,31 +297,30 @@ class MazeMemoryGame {
 
     this.bullets = [];
 
-    // Power-up accumulation logic
+    // Power-up accumulation based on completed cycles
     if (this.level < this.CONFIG.POWER_UP_START_LEVEL) {
-      this.powerUps = []; // No power-ups before level 7
-    } else if (
-      this.levelCleared &&
-      !restartSameLevel &&
-      this.powerUps.length < this.CONFIG.MAX_POWER_UP_COUNT
-    ) {
-      // Add one new power-up when clearing a level, if under max
-      let pos;
-      do {
-        pos = this.getRandomOpenPosition();
-      } while (
-        this.targets.some((t) => t.pos.equals(pos)) ||
-        pos.equals(this.tank.pos) ||
-        (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
-        this.powerUps.some((p) => p.pos.equals(pos))
+      this.powerUps = []; // No power-ups before POWER_UP_START_LEVEL
+    } else {
+      const powerUpCount = Math.min(
+        Math.floor(
+          (this.level - this.CONFIG.POWER_UP_START_LEVEL) /
+            this.CONFIG.LEVELS_PER_CYCLE
+        ),
+        this.CONFIG.MAX_POWER_UP_COUNT
       );
-      this.powerUps.push({
-        pos: pos,
-        opacity: 0,
-        revealStart: performance.now(),
+      this.powerUps = range(powerUpCount).map(() => {
+        let pos;
+        do {
+          pos = this.getRandomOpenPosition();
+        } while (
+          this.targets.some((t) => t.pos.equals(pos)) ||
+          pos.equals(this.tank.pos) ||
+          (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
+          this.powerUps.some((p) => p.pos.equals(pos))
+        );
+        return { pos: pos, opacity: 0, revealStart: performance.now() };
       });
     }
-    // Otherwise, keep existing powerUps unchanged
 
     this.currentTarget = 1;
     this.showNumbers = true;
