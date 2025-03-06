@@ -48,35 +48,69 @@ export class MovementEngine {
       const targetAngle = this.directionToAngle(tank.dir); // Use tank.dir for final angle
       this.updateRotation(tank, currentAngle, targetAngle, deltaTime);
     }
-    console.log(
-      `Tank pos: (${tank.pos.x}, ${tank.pos.y}), Angle: ${tank.currentAngle}`
-    );
   }
 
   updateChaosMonster(deltaTime: number) {
     if (!this.game.chaosMonster) return;
 
     const chaosMonster = this.game.chaosMonster;
-    if (!chaosMonster.target || chaosMonster.holdingTarget) return;
 
-    const dx = chaosMonster.target.pos.x - chaosMonster.pos.x;
-    const dy = chaosMonster.target.pos.y - chaosMonster.pos.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    // If holding a target, move back to origin and check if hit
+    if (chaosMonster.holdingTarget) {
+      const delta = chaosMonster.origin.subtract(chaosMonster.pos);
+      const distance = delta.distanceTo(new Vector2D(0, 0));
 
-    if (distance > 0.1) {
-      const speed = chaosMonster.speed;
-      const moveDistance = Math.min(distance, speed * deltaTime);
-      chaosMonster.pos.x += (dx / distance) * moveDistance;
-      chaosMonster.pos.y += (dy / distance) * moveDistance;
+      if (distance > 0.1) {
+        const speed = chaosMonster.speed;
+        const moveDistance = Math.min(distance, speed * deltaTime);
+        const moveStep = delta.scale(1 / distance).scale(moveDistance);
+        chaosMonster.pos = chaosMonster.pos.add(moveStep);
+        console.log(
+          `Monster moving to origin: (${chaosMonster.pos.x}, ${chaosMonster.pos.y})`
+        );
+      } else {
+        chaosMonster.holdingTarget.pos = chaosMonster.origin.copy();
+        chaosMonster.pos = chaosMonster.origin.copy();
+        console.log(
+          `Monster at origin, placed target at: (${chaosMonster.holdingTarget.pos.x}, ${chaosMonster.holdingTarget.pos.y})`
+        );
+
+        if (chaosMonster.holdingTarget.hit) {
+          console.log(
+            "updateChaosMonster",
+            "Holding target hit, releasing target"
+          );
+          chaosMonster.holdingTarget = null;
+        }
+      }
     } else {
-      chaosMonster.pos.x = chaosMonster.target.pos.x;
-      chaosMonster.pos.y = chaosMonster.target.pos.y;
-      chaosMonster.holdingTarget = chaosMonster.target;
+      // If not holding a target, move to the closest target
+      if (!chaosMonster.target) {
+        chaosMonster.target = this.game.findNearestTarget(chaosMonster.pos);
+        if (!chaosMonster.target) {
+          console.log("No targets left, removing chaos monster");
+          this.game.chaosMonster = null;
+          return;
+        }
+      }
 
-      const newTarget = this.game.targets.find(
-        (t) => !t.hit && t !== chaosMonster.target
-      );
-      chaosMonster.target = newTarget || null;
+      const delta = chaosMonster.target.pos.subtract(chaosMonster.pos);
+      const distance = delta.distanceTo(new Vector2D(0, 0));
+
+      if (distance > 0.1) {
+        const speed = chaosMonster.speed;
+        const moveDistance = Math.min(distance, speed * deltaTime);
+        const moveStep = delta.scale(1 / distance).scale(moveDistance);
+        chaosMonster.pos = chaosMonster.pos.add(moveStep);
+        console.log(
+          `Monster moving to target: (${chaosMonster.pos.x}, ${chaosMonster.pos.y})`
+        );
+      } else {
+        chaosMonster.pos = chaosMonster.target.pos.copy();
+        chaosMonster.holdingTarget = chaosMonster.target;
+        chaosMonster.target = null;
+        console.log("Picked up target, returning to origin");
+      }
     }
   }
 
@@ -121,11 +155,9 @@ export class MovementEngine {
       const bulletGridPos = bullet.pos.round();
       const mazeValue = this.getMazeValue(bulletGridPos);
       if (mazeValue === -1) {
-        // Out of bounds
         return false;
       } else if (mazeValue === 1) {
-        // Hit a wall
-        this.setMazeValue(bulletGridPos, 0); // Destroy wall
+        this.setMazeValue(bulletGridPos, 0);
       }
 
       const hitTarget = this.game.targets.find((target) => {
@@ -145,17 +177,21 @@ export class MovementEngine {
       });
 
       if (hitTarget) {
-        const index = this.game.targets.indexOf(hitTarget);
-        this.game.targets.splice(index, 1);
-        hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
-        this.game.score.hits++;
-
         if (hitTarget.num === this.game.currentTarget) {
+          hitTarget.hit = true;
+          // Correct target: remove it and increment hits
+          const index = this.game.targets.indexOf(hitTarget);
+          this.game.targets.splice(index, 1);
+          hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
+          this.game.score.hits++;
           this.game.currentTarget++;
         } else {
+          // Out of sequence: count as a miss and flash the target
           this.game.score.lives--;
-          this.game.currentTarget = 1;
-          this.game.targets.forEach((t) => (t.hit = false));
+          hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION; // Flash the missed target
+          console.log(
+            `Miss! Hit target #${hitTarget.num}, expected #${this.game.currentTarget}`
+          );
         }
         return false;
       }

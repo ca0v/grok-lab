@@ -147,7 +147,7 @@ export class EventHandler {
           this.game.DIRECTION_VECTORS[
             tank.dir as keyof typeof this.game.DIRECTION_VECTORS
           ];
-        const bulletOrigin = tank.pos.copy().add(dirVec);
+        const bulletOrigin = tank.pos.copy();
         this.game.bullets.push({
           pos: bulletOrigin,
           dir: tank.dir,
