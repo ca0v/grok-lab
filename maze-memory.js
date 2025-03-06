@@ -13,19 +13,18 @@ class MazeMemoryGame {
   constructor() {
     this.CONFIG = CONFIG; // Assign the imported CONFIG to a class property
     this.INPUT_MAP = INPUT_MAP; // Assign the imported INPUT_MAP to a class property
-    this.DIRECTION_VECTORS = DIRECTION_VECTORS; // Assign the imported DIRECTION_VECTORS to a class property
+    this.DIRECTION_VECTORS = DIRECTION_VECTORS;
+
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
 
-    // Adjust MAX_GRID_WIDTH based on screen size
     if (window.innerWidth <= 480) {
       CONFIG.MAX_GRID_WIDTH = 11;
     }
 
     this.initializeGameConstants();
 
-    // Initialize helper classes
     this.movementEngine = new MovementEngine(this);
     this.renderEngine = new RenderEngine(this);
     this.eventHandler = new EventHandler(this);
@@ -37,7 +36,6 @@ class MazeMemoryGame {
     this.lastTime = performance.now();
     this.accumulatedTime = 0;
 
-    // Adjust visibility based on touch support
     const isTouchSupported = "ontouchstart" in window;
     const joystickContainer = document.getElementById("joystick-container");
     const bottomButtons = document.getElementById("bottom-buttons");
@@ -46,7 +44,6 @@ class MazeMemoryGame {
       bottomButtons.style.display = "none";
       joystickContainer.style.display = "flex";
       this.setupGestureEngine();
-      // Add tap listener for the canvas to detect monster taps
       this.canvas.addEventListener(
         "touchstart",
         this.handleCanvasTap.bind(this)
@@ -63,6 +60,7 @@ class MazeMemoryGame {
     const joystick = document.getElementById("shoot");
     joystick.classList.remove("control-btn");
     joystick.classList.add("joystick");
+    // Simply instantiate GestureEngine, as it now handles long-press internally
     new GestureEngine(joystick, this);
   }
 

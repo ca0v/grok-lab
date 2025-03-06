@@ -7,16 +7,30 @@ export class GestureEngine {
     this.threshold = 30; // Pixels to detect movement
     this.isActive = false;
     this.touchStartTime = null; // Track touch start time
+    this.longPressThreshold = 500; // Long-press duration for shoot (in ms)
     this.tapDurationThreshold = 300; // Max duration for a tap (in ms)
+    this.longPressTimer = null; // Timer for long-press detection
     this.hasMoved = false; // Track if significant movement occurred
 
     console.log("GestureEngine initialized with joystick:", this.joystick);
-    this.joystick.addEventListener("touchstart", this.handleTouchStart.bind(this));
-    this.joystick.addEventListener("touchmove", this.handleTouchMove.bind(this));
+    this.joystick.addEventListener(
+      "touchstart",
+      this.handleTouchStart.bind(this)
+    );
+    this.joystick.addEventListener(
+      "touchmove",
+      this.handleTouchMove.bind(this)
+    );
     this.joystick.addEventListener("touchend", this.handleTouchEnd.bind(this));
     // Add mouse support for browser simulation
-    this.joystick.addEventListener("mousedown", this.handleMouseDown.bind(this));
-    this.joystick.addEventListener("mousemove", this.handleMouseMove.bind(this));
+    this.joystick.addEventListener(
+      "mousedown",
+      this.handleMouseDown.bind(this)
+    );
+    this.joystick.addEventListener(
+      "mousemove",
+      this.handleMouseMove.bind(this)
+    );
     this.joystick.addEventListener("mouseup", this.handleMouseUp.bind(this));
   }
 
@@ -30,6 +44,16 @@ export class GestureEngine {
     this.hasMoved = false;
     this.joystick.classList.add("joystick-active");
     this.lastDirection = null;
+
+    // Set up long-press timer for shoot
+    this.longPressTimer = setTimeout(() => {
+      if (this.isActive && !this.hasMoved) {
+        console.log("Long-press detected, triggering shoot");
+        this.game.handleInput({ action: "shoot" });
+        this.hasMoved = true; // Prevent further actions after shoot
+      }
+    }, this.longPressThreshold);
+
     console.log(
       "Touch start position:",
       this.touchStart,
@@ -49,6 +73,16 @@ export class GestureEngine {
     this.hasMoved = false;
     this.joystick.classList.add("joystick-active");
     this.lastDirection = null;
+
+    // Set up long-press timer for shoot (for mouse simulation)
+    this.longPressTimer = setTimeout(() => {
+      if (this.isActive && !this.hasMoved) {
+        console.log("Long-press detected (mouse), triggering shoot");
+        this.game.handleInput({ action: "shoot" });
+        this.hasMoved = true; // Prevent further actions after shoot
+      }
+    }, this.longPressThreshold);
+
     console.log(
       "Mouse down position:",
       this.touchStart,
@@ -78,7 +112,12 @@ export class GestureEngine {
     if (distance > this.threshold) {
       this.hasMoved = true;
       const direction = this.getDirection(deltaX, deltaY);
-      console.log("Direction detected:", direction, "Last direction:", this.lastDirection);
+      console.log(
+        "Direction detected:",
+        direction,
+        "Last direction:",
+        this.lastDirection
+      );
       if (
         direction !== this.lastDirection ||
         (direction === this.lastDirection && distance > this.threshold * 1.5)
@@ -88,6 +127,11 @@ export class GestureEngine {
         console.log("Triggering move with direction:", direction);
         this.touchStart = { x: touch.clientX, y: touch.clientY };
         console.log("Updated touch start:", this.touchStart);
+      }
+      // Cancel long-press if movement occurs
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
       }
     }
   }
@@ -110,7 +154,12 @@ export class GestureEngine {
     if (distance > this.threshold) {
       this.hasMoved = true;
       const direction = this.getDirection(deltaX, deltaY);
-      console.log("Direction detected:", direction, "Last direction:", this.lastDirection);
+      console.log(
+        "Direction detected:",
+        direction,
+        "Last direction:",
+        this.lastDirection
+      );
       if (
         direction !== this.lastDirection ||
         (direction === this.lastDirection && distance > this.threshold * 1.5)
@@ -120,6 +169,11 @@ export class GestureEngine {
         console.log("Triggering move with direction:", direction);
         this.touchStart = { x: e.clientX, y: e.clientY };
         console.log("Updated touch start:", this.touchStart);
+      }
+      // Cancel long-press if movement occurs
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
       }
     }
   }
@@ -135,6 +189,10 @@ export class GestureEngine {
       const startY = this.touchStart.y;
       this.touchStart = null;
       this.lastDirection = null;
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
+      }
       console.log(
         "Joystick deactivated, touchStart and lastDirection cleared. Duration:",
         touchDuration,
@@ -142,19 +200,18 @@ export class GestureEngine {
         this.hasMoved
       );
 
-      if (e.changedTouches.length === 1 && e.type === "touchend" && touchDuration < this.tapDurationThreshold) {
-        if (!this.hasMoved) {
-          // Check if the tap was on an edge
-          const tappedEdge = this.checkEdgeTap(startX, startY);
-          if (tappedEdge) {
-            console.log(`Detected edge tap: ${tappedEdge}, triggering ${tappedEdge}`);
-            this.game.handleInput(this.game.INPUT_MAP[tappedEdge]);
-          } else {
-            console.log("Detected center tap, triggering shoot");
-            this.game.handleInput({ action: "shoot" });
-          }
+      // Check for short tap (less than tapDurationThreshold) and edge tap
+      if (touchDuration < this.tapDurationThreshold && !this.hasMoved) {
+        const tappedEdge = this.checkEdgeTap(startX, startY);
+        if (tappedEdge) {
+          console.log(
+            `Detected edge tap: ${tappedEdge}, triggering ${tappedEdge}`
+          );
+          this.game.handleInput(this.game.INPUT_MAP[tappedEdge]);
         } else {
-          console.log("Not a tap (moved), skipping shoot");
+          console.log(
+            "Short tap in center, no action (shoot requires long-press)"
+          );
         }
       }
     }
@@ -171,6 +228,10 @@ export class GestureEngine {
       const startY = this.touchStart.y;
       this.touchStart = null;
       this.lastDirection = null;
+      if (this.longPressTimer) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
+      }
       console.log(
         "Joystick deactivated, touchStart and lastDirection cleared. Duration:",
         touchDuration,
@@ -178,19 +239,18 @@ export class GestureEngine {
         this.hasMoved
       );
 
-      if (touchDuration < this.tapDurationThreshold) {
-        if (!this.hasMoved) {
-          // Check if the tap was on an edge
-          const tappedEdge = this.checkEdgeTap(startX, startY);
-          if (tappedEdge) {
-            console.log(`Detected edge tap: ${tappedEdge}, triggering ${tappedEdge}`);
-            this.game.handleInput(this.game.INPUT_MAP[tappedEdge]);
-          } else {
-            console.log("Detected center tap, triggering shoot");
-            this.game.handleInput({ action: "shoot" });
-          }
+      // Check for short tap (less than tapDurationThreshold) and edge tap
+      if (touchDuration < this.tapDurationThreshold && !this.hasMoved) {
+        const tappedEdge = this.checkEdgeTap(startX, startY);
+        if (tappedEdge) {
+          console.log(
+            `Detected edge tap: ${tappedEdge}, triggering ${tappedEdge}`
+          );
+          this.game.handleInput(this.game.INPUT_MAP[tappedEdge]);
         } else {
-          console.log("Not a tap (moved), skipping shoot");
+          console.log(
+            "Short tap in center, no action (shoot requires long-press)"
+          );
         }
       }
     }
@@ -199,8 +259,14 @@ export class GestureEngine {
   getDirection(deltaX, deltaY) {
     const absX = Math.abs(deltaX);
     const absY = Math.abs(deltaY);
-    const direction = absX > absY ? (deltaX > 0 ? "d" : "a") : (deltaY > 0 ? "s" : "w");
-    console.log("Calculated direction with deltas:", { deltaX, deltaY, absX, absY }, "Result:", direction);
+    const direction =
+      absX > absY ? (deltaX > 0 ? "d" : "a") : deltaY > 0 ? "s" : "w";
+    console.log(
+      "Calculated direction with deltas:",
+      { deltaX, deltaY, absX, absY },
+      "Result:",
+      direction
+    );
     return direction;
   }
 
