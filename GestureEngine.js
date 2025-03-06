@@ -6,6 +6,9 @@ export class GestureEngine {
     this.lastDirection = null
     this.threshold = 30 // Pixels to detect movement
     this.isActive = false
+    this.touchStartTime = null // Track touch start time
+    this.tapDurationThreshold = 300 // Max duration for a tap (in ms)
+    this.hasMoved = false // Track if significant movement occurred
 
     console.log("GestureEngine initialized with joystick:", this.joystick)
     this.joystick.addEventListener(
@@ -21,14 +24,18 @@ export class GestureEngine {
     e.preventDefault()
     const touch = e.touches[0]
     this.touchStart = { x: touch.clientX, y: touch.clientY }
+    this.touchStartTime = performance.now() // Record start time
     this.isActive = true
+    this.hasMoved = false // Reset movement tracking
     this.joystick.classList.add("joystick-active")
-    this.lastDirection = null // Reset direction on new touch
+    this.lastDirection = null
     console.log(
       "Touch start position:",
       this.touchStart,
       "Active:",
-      this.isActive
+      this.isActive,
+      "Start time:",
+      this.touchStartTime
     )
   }
 
@@ -49,6 +56,7 @@ export class GestureEngine {
     console.log("Delta:", { deltaX, deltaY }, "Distance:", distance)
 
     if (distance > this.threshold) {
+      this.hasMoved = true // Mark as moved if threshold exceeded
       const direction = this.getDirection(deltaX, deltaY)
       console.log(
         "Direction detected:",
@@ -56,7 +64,6 @@ export class GestureEngine {
         "Last direction:",
         this.lastDirection
       )
-      // Trigger move if direction changes or if it's a new significant move in the same direction
       if (
         direction !== this.lastDirection ||
         (direction === this.lastDirection && distance > this.threshold * 1.5)
@@ -64,7 +71,7 @@ export class GestureEngine {
         this.lastDirection = direction
         this.triggerMove(direction)
         console.log("Triggering move with direction:", direction)
-        this.touchStart = { x: touch.clientX, y: touch.clientY } // Update start for repeated moves
+        this.touchStart = { x: touch.clientX, y: touch.clientY }
         console.log("Updated touch start:", this.touchStart)
       }
     }
@@ -74,14 +81,26 @@ export class GestureEngine {
     console.log("Touch ended:", e)
     e.preventDefault()
     if (this.isActive) {
+      const touchDuration = performance.now() - this.touchStartTime
       this.isActive = false
       this.joystick.classList.remove("joystick-active")
       this.touchStart = null
       this.lastDirection = null
-      console.log("Joystick deactivated, touchStart and lastDirection cleared")
+      console.log(
+        "Joystick deactivated, touchStart and lastDirection cleared. Duration:",
+        touchDuration,
+        "Has moved:",
+        this.hasMoved
+      )
+
       if (e.changedTouches.length === 1 && e.type === "touchend") {
-        console.log("Detected tap, triggering shoot")
-        this.game.handleInput(this.game.INPUT_MAP["shoot"])
+        // Only trigger shoot if it's a tap: short duration and no significant movement
+        if (touchDuration < this.tapDurationThreshold && !this.hasMoved) {
+          console.log("Detected tap, triggering shoot")
+          this.game.handleInput({ action: "shoot" })
+        } else {
+          console.log("Not a tap (too long or moved), skipping shoot")
+        }
       }
     }
   }

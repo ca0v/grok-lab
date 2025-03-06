@@ -65,9 +65,8 @@ class MazeMemoryGame {
     down: { action: "move", dir: "down" },
     left: { action: "move", dir: "left" },
     right: { action: "move", dir: "right" },
-    shoot: { action: "shoot" },
-    marker: { action: "marker" },
-    peek: { action: "peek" },
+    marker: { action: "marker" }, // Keep marker for other buttons
+    peek: { action: "peek" }, // Keep peek for other buttons
   }
 
   DIRECTION_VECTORS = {
@@ -293,14 +292,11 @@ class MazeMemoryGame {
     Object.keys(this.INPUT_MAP).forEach((id) => {
       const button = document.getElementById(id)
       if (button) {
+        // Exclude the shoot joystick from button handlers
         const handleStart = (e) => {
           if (this.gameOver || this.levelCleared) return
           e.preventDefault()
-          if (
-            this.showNumbers &&
-            this.numberTimer > 0 &&
-            this.INPUT_MAP[id].action !== "shoot"
-          ) {
+          if (this.showNumbers && this.numberTimer > 0) {
             this.showNumbers = false
             this.numberTimer = 0
             return
