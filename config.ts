@@ -5,7 +5,7 @@ export const CONFIG = {
   BANNER_HEIGHT_RATIO: 0.12, // Renamed from BANNER_HEIGHT_PERCENT
   SCOREBOARD_FONT_SCALE: 3,
   MAZE_WALL_COLOR: "gray",
-  TANK_COLOR: "green",
+  TANK_COLOR: "rgba(0, 0, 255, 0.8)",
   BULLET_COLOR: "red",
   POWER_UP_COLOR: "yellow",
   TARGET_OUTLINE_COLOR: "black",

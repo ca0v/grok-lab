@@ -20,17 +20,16 @@ export class MovementEngine {
       const moveX = (dx / distance) * moveDistance;
       const moveY = (dy / distance) * moveDistance;
 
-      // Update position without snapping mid-move
       tank.pos.x += moveX;
       tank.pos.y += moveY;
 
-      // Snap only when very close to target, preserving animation
       if (distance < speed * deltaTime * 0.5) {
         tank.pos.x = tank.targetPos.x;
         tank.pos.y = tank.targetPos.y;
       }
 
-      const dir =
+      // Update angle based on movement direction
+      const moveDir =
         Math.abs(dx) > Math.abs(dy)
           ? dx > 0
             ? "right"
@@ -39,25 +38,19 @@ export class MovementEngine {
           ? "down"
           : "up";
       const currentAngle = tank.currentAngle;
-      const targetAngle = this.directionToAngle(dir);
-
-      if (currentAngle !== targetAngle) {
-        if (tank.rotationStart === null) tank.rotationStart = performance.now();
-        const elapsed = performance.now() - tank.rotationStart!;
-        const duration = this.game.CONFIG.ROTATION_DURATION;
-        const progress = Math.min(elapsed / duration, 1);
-        tank.currentAngle = this.lerpAngle(currentAngle, targetAngle, progress);
-        if (progress === 1) {
-          tank.rotationStart = null;
-          tank.currentAngle = targetAngle;
-        }
-      }
+      const targetAngle = this.directionToAngle(moveDir);
+      this.updateRotation(tank, currentAngle, targetAngle, deltaTime);
     } else {
       tank.pos.x = tank.targetPos.x;
       tank.pos.y = tank.targetPos.y;
-      tank.rotationStart = null;
+      // Ensure rotation completes if still animating
+      const currentAngle = tank.currentAngle;
+      const targetAngle = this.directionToAngle(tank.dir); // Use tank.dir for final angle
+      this.updateRotation(tank, currentAngle, targetAngle, deltaTime);
     }
-    console.log(`Tank pos: (${tank.pos.x}, ${tank.pos.y})`);
+    console.log(
+      `Tank pos: (${tank.pos.x}, ${tank.pos.y}), Angle: ${tank.currentAngle}`
+    );
   }
 
   updateChaosMonster(deltaTime: number) {
@@ -149,25 +142,22 @@ export class MovementEngine {
         const bulletToPowerUp = bullet.pos.subtract(p.pos);
         const distance = bulletToPowerUp.distanceTo(new Vector2D(0, 0));
         return (
-          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE &&
-          p.opacity === 1
+          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE && p.opacity === 1
         );
       });
 
       if (hitPowerUp) {
         const index = this.game.powerUps.indexOf(hitPowerUp);
-        this.game.powerUps.splice(index, 1);
-        this.game.score.lives = Math.min(
-          this.game.score.lives + 1,
-          this.game.CONFIG.MAX_MISSES
-        );
+        this.game.powerUps.splice(index, 1); // Remove power-up
+        // Show numbers for all remaining targets
+        this.game.showNumbers = true;
+        this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER; // e.g., 5000ms
         return false;
       }
 
       return true;
     });
   }
-  
 
   moveFar(targetPos: Vector2D, dir: string): Vector2D {
     let newPos = targetPos.copy();
@@ -216,6 +206,31 @@ export class MovementEngine {
   }
 
   updateTankDirection(dir: string) {
-    this.game.tank.dir = dir;
+    const tank = this.game.tank;
+    tank.dir = dir;
+    const currentAngle = tank.currentAngle;
+    const targetAngle = this.directionToAngle(dir);
+    if (currentAngle !== targetAngle) {
+      tank.rotationStart = performance.now(); // Start rotation animation
+    }
+  }
+
+  updateRotation(
+    tank: typeof this.game.tank,
+    currentAngle: number,
+    targetAngle: number,
+    deltaTime: number
+  ) {
+    if (currentAngle !== targetAngle) {
+      if (tank.rotationStart === null) tank.rotationStart = performance.now();
+      const elapsed = performance.now() - tank.rotationStart!;
+      const duration = this.game.CONFIG.ROTATION_DURATION;
+      const progress = Math.min(elapsed / duration, 1);
+      tank.currentAngle = this.lerpAngle(currentAngle, targetAngle, progress);
+      if (progress === 1) {
+        tank.rotationStart = null;
+        tank.currentAngle = targetAngle;
+      }
+    }
   }
 }

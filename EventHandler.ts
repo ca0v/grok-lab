@@ -107,48 +107,69 @@ export class EventHandler {
 
     if (this.game.gameOver || this.game.levelCleared) return;
 
-    if (input.action === "moveFar" && input.dir) {
-      tank.targetPos = this.game.movementEngine.moveFar(tank.targetPos, input.dir);
-      tank.ignoreCollisions = false; // Reset unless moving to marker
-      this.game.score.moves++;
-    } else if (input.action === "moveOne" && input.dir) {
-      const newPos = tank.pos.add(
-        this.game.DIRECTION_VECTORS[
-          input.dir as keyof typeof this.game.DIRECTION_VECTORS
-        ]
-      );
-      if (this.game.isValidMove(newPos)) {
-        tank.targetPos = newPos;
-        tank.ignoreCollisions = false;
-        this.game.score.moves++;
-      }
-    } else if (input.action === "shoot") {
-      this.game.bullets.push({
-        pos: tank.pos.copy(),
-        dir: tank.dir,
-      });
-    } else if (input.action === "marker") {
-      this.game.marker =
-        this.game.marker && this.game.marker.equals(tank.pos)
-          ? null
-          : tank.pos.copy();
-    } else if (input.action === "peek") {
-      if (this.game.showAllTimer <= 0 && this.game.showNextTimer <= 0) {
-        this.game.showNextTimer = this.game.CONFIG.POWER_UP_REVEAL_DURATION;
-      }
+    switch (input.action) {
+      case "moveFar":
+        if (input.dir) {
+          tank.targetPos = this.game.movementEngine.moveFar(
+            tank.targetPos,
+            input.dir
+          );
+          tank.ignoreCollisions = false;
+          this.game.score.moves++;
+          this.game.movementEngine.updateTankDirection(input.dir);
+        }
+        break;
+
+      case "moveOne":
+        if (input.dir) {
+          // If tank isn't facing the input direction, rotate only
+          if (tank.dir !== input.dir) {
+            this.game.movementEngine.updateTankDirection(input.dir);
+          } else {
+            // Tank is facing the right direction, move one cell
+            const newPos = tank.targetPos.add(
+              this.game.DIRECTION_VECTORS[
+                input.dir as keyof typeof this.game.DIRECTION_VECTORS
+              ]
+            );
+            if (this.game.isValidMove(newPos)) {
+              tank.targetPos = newPos;
+              tank.ignoreCollisions = false;
+              this.game.score.moves++;
+            }
+          }
+        }
+        break;
+
+      case "shoot":
+        this.game.bullets.push({
+          pos: tank.pos.copy(),
+          dir: tank.dir,
+        });
+        break;
+
+      case "marker":
+        this.game.marker =
+          this.game.marker && this.game.marker.equals(tank.pos)
+            ? null
+            : tank.pos.copy();
+        break;
+
+      case "peek":
+        if (this.game.showAllTimer <= 0 && this.game.showNextTimer <= 0) {
+          this.game.showNextTimer = this.game.CONFIG.POWER_UP_REVEAL_DURATION;
+        }
+        break;
     }
 
-    if (input.dir) {
-      this.game.movementEngine.updateTankDirection(input.dir);
-    }
-
+    // Handle marker movement separately
     if (
       this.game.marker &&
       input.action !== "marker" &&
       input.action !== "peek"
     ) {
       tank.targetPos = this.game.marker.copy();
-      tank.ignoreCollisions = true; // Allow wall traversal to marker
+      tank.ignoreCollisions = true;
       this.game.score.moves++;
       this.game.marker = null;
     }

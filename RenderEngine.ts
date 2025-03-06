@@ -233,36 +233,52 @@ export class RenderEngine {
 
   drawScoreboard() {
     this.ctx.fillStyle = "white";
-    this.ctx.font = `${
-      this.game.gridSize / this.CONFIG.SCOREBOARD_FONT_SCALE
-    }px Arial`;
+    const fontSize = this.game.gridSize / this.CONFIG.SCOREBOARD_FONT_SCALE; // e.g., 40 / 3 ≈ 13px
+    this.ctx.font = `${fontSize}px Arial`;
     this.ctx.textAlign = "left";
     this.ctx.textBaseline = "top";
-
-    const lives = `Lives: ${this.game.score.lives}`;
-    const hits = `Hits: ${this.game.score.hits}`;
+  
+    // Calculate line height to fit within banner (topBorderSize)
+    const lineHeight = Math.min(fontSize * 1.2, this.game.topBorderSize / 3); // Fit up to 3 lines
+    const padding = 10; // Left/right padding
+    const circleRadius = fontSize / 2; // Circle size based on font size
+  
+    // Left side: Lives as TANK_COLOR circles, PowerUps as POWER_UP_COLOR circles
+    const livesCount = this.game.score.lives;
+    this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "blue"
+    for (let i = 0; i < livesCount; i++) {
+      const x = padding + i * (circleRadius * 2 + 2); // Space circles horizontally
+      const y = padding;
+      this.ctx.beginPath();
+      this.ctx.arc(x + circleRadius, y + circleRadius, circleRadius, 0, Math.PI * 2); // Offset by radius for proper positioning
+      this.ctx.fill();
+    }
+  
+    const powerUpCount = this.game.powerUps.length;
+    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR; // e.g., "yellow"
+    for (let i = 0; i < powerUpCount; i++) {
+      const x = padding + i * (circleRadius * 2 + 2); // Space circles horizontally
+      const y = padding + lineHeight;
+      this.ctx.beginPath();
+      this.ctx.arc(x + circleRadius, y + circleRadius, circleRadius, 0, Math.PI * 2);
+      this.ctx.fill();
+    }
+  
+    // Center: Total, Moves
+    this.ctx.fillStyle = "white";
+    this.ctx.textAlign = "center";
     const total = `Score: ${this.game.score.total}`;
     const moves = `Moves: ${this.game.score.moves}`;
+    this.ctx.fillText(total, this.game.canvas.width / 2, padding);
+    this.ctx.fillText(moves, this.game.canvas.width / 2, padding + lineHeight);
+  
+    // Right side: Level, Hits
+    this.ctx.textAlign = "right";
     const level = `Level: ${this.game.level}`;
-
-    this.ctx.fillText(lives, 10, 10);
-    this.ctx.fillText(
-      hits,
-      10,
-      10 + this.game.gridSize / this.CONFIG.SCOREBOARD_FONT_SCALE
-    );
-    this.ctx.fillText(total, this.game.canvas.width / 2, 10);
-    this.ctx.fillText(
-      moves,
-      this.game.canvas.width / 2,
-      10 + this.game.gridSize / this.CONFIG.SCOREBOARD_FONT_SCALE
-    );
-    this.ctx.fillText(
-      level,
-      this.game.canvas.width - this.game.gridSize * 2,
-      10
-    );
-  }
+    const hits = `Hits: ${this.game.score.hits}`;
+    this.ctx.fillText(level, this.game.canvas.width - padding, padding);
+    this.ctx.fillText(hits, this.game.canvas.width - padding, padding + lineHeight);
+  }  
 
   drawMessages() {
     if (this.game.gameOver || this.game.levelCleared) {
