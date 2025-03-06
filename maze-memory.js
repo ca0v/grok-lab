@@ -171,10 +171,12 @@ class MazeMemoryGame {
     const difficulty = Math.floor(
       (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     )
+    const isSmallDevice = window.innerWidth < 768
+    const maxGridSize = isSmallDevice ? 11 : this.CONFIG.MAX_GRID_SIZE
     this.mazeSize = Math.min(
-      this.CONFIG.MAX_GRID_SIZE,
+      maxGridSize,
       this.CONFIG.MIN_GRID_SIZE +
-        (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+      (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
     )
     this.updateCanvasSize()
 
