@@ -1,25 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimum-scale=1.0">
     <title>Tank Memory Maze</title>
     <link rel="stylesheet" href="maze-memory.css">
 </head>
-
 <body>
     <canvas id="gameCanvas"></canvas>
-    <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker,
-        ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
+    <div id="instructions">Use WASD to move far, Arrow keys to move one cell, Space to shoot, X to place/move to marker, ? to peek numbers. Hit targets in order! Game over at 5 misses.</div>
     <div id="controls">
         <div id="joystick-container">
             <div class="joystick" id="shoot"></div>
-        </div>
-        <div id="bottom-buttons">
-            <button class="control-btn" id="marker">M</button>
-            <button class="control-btn" id="peek">P</button>
         </div>
     </div>
     <script type="module">
@@ -27,5 +19,4 @@
         run();
     </script>
 </body>
-
 </html>

@@ -13,14 +13,14 @@ class MazeMemoryGame {
   constructor() {
     this.CONFIG = CONFIG; // Assign the imported CONFIG to a class property
     this.INPUT_MAP = INPUT_MAP; // Assign the imported INPUT_MAP to a class property
-    this.DIRECTION_VECTORS = DIRECTION_VECTORS;
+    this.DIRECTION_VECTORS = DIRECTION_VECTORS; // Assign the imported DIRECTION_VECTORS to a class property
 
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
 
     if (window.innerWidth <= 480) {
-      CONFIG.MAX_GRID_WIDTH = 11;
+      this.CONFIG.MAX_GRID_WIDTH = 11;
     }
 
     this.initializeGameConstants();
@@ -38,10 +38,8 @@ class MazeMemoryGame {
 
     const isTouchSupported = "ontouchstart" in window;
     const joystickContainer = document.getElementById("joystick-container");
-    const bottomButtons = document.getElementById("bottom-buttons");
 
     if (isTouchSupported) {
-      bottomButtons.style.display = "none";
       joystickContainer.style.display = "flex";
       this.setupGestureEngine();
       this.canvas.addEventListener(
@@ -50,7 +48,6 @@ class MazeMemoryGame {
       );
     } else {
       joystickContainer.style.display = "none";
-      bottomButtons.style.display = "flex";
     }
 
     this.gameLoop();
@@ -60,7 +57,6 @@ class MazeMemoryGame {
     const joystick = document.getElementById("shoot");
     joystick.classList.remove("control-btn");
     joystick.classList.add("joystick");
-    // Simply instantiate GestureEngine, as it now handles long-press internally
     new GestureEngine(joystick, this);
   }
 
@@ -108,48 +104,51 @@ class MazeMemoryGame {
   }
 
   initializeGameConstants() {
-    this.mazeWidth = CONFIG.MIN_GRID_SIZE;
-    this.mazeHeight = CONFIG.MIN_GRID_SIZE;
+    const isLandscape = window.innerWidth > window.innerHeight;
+    this.mazeWidth = isLandscape
+      ? this.CONFIG.MAX_GRID_WIDTH
+      : this.CONFIG.MIN_GRID_SIZE;
+    this.mazeHeight = isLandscape
+      ? Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2)
+      : this.CONFIG.MIN_GRID_SIZE;
     this.level = this.level || 1;
-    this.maxTargets = CONFIG.TARGETS_BASE;
+    this.maxTargets = this.CONFIG.TARGETS_BASE;
   }
 
   initializeCanvas() {
     this.canvas = document.getElementById("gameCanvas");
     this.ctx = this.canvas.getContext("2d");
-    this.controlsHeight = CONFIG.CONTROLS_HEIGHT;
+    this.controlsHeight = this.CONFIG.CONTROLS_HEIGHT;
     this.topBorderSize = 0;
-    this.updateCanvasSize(); // Initial sizing
+    this.updateCanvasSize();
   }
 
   updateCanvasSize() {
-    // Available screen dimensions minus margins
-    const windowWidth = window.innerWidth - CONFIG.CANVAS_MARGIN.HORIZONTAL;
+    const windowWidth =
+      window.innerWidth - this.CONFIG.CANVAS_MARGIN.HORIZONTAL;
     const windowHeight =
-      window.innerHeight - CONFIG.CANVAS_MARGIN.VERTICAL - this.controlsHeight;
+      window.innerHeight -
+      this.CONFIG.CANVAS_MARGIN.VERTICAL -
+      this.controlsHeight;
 
-    // Calculate canvas width to fill available screen width
     this.canvas.width = windowWidth;
-
-    // Calculate banner height as a percentage of canvas width
-    this.bannerHeight = this.canvas.width * CONFIG.BANNER_HEIGHT_PERCENT;
+    this.bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_PERCENT;
     this.topBorderSize = this.bannerHeight;
 
-    // Calculate maximum grid height (excluding banner)
     const maxGridHeight = windowHeight - this.bannerHeight;
+    const isLandscape = window.innerWidth > window.innerHeight;
 
-    // Calculate grid size based on width, ensuring it's at least CONFIG.GRID_SIZE
+    // Adjust grid size to prioritize width in landscape
     const gridSizeWidth = Math.floor(windowWidth / this.mazeWidth);
     const gridSizeHeight = Math.floor(maxGridHeight / this.mazeHeight);
     this.gridSize = Math.max(
-      CONFIG.GRID_SIZE,
+      this.CONFIG.GRID_SIZE,
       Math.min(gridSizeWidth, gridSizeHeight)
     );
 
-    // Set canvas height based on grid size and maze dimensions, plus banner
+    // Set canvas height to fit grid and banner
     this.canvas.height = this.mazeHeight * this.gridSize + this.bannerHeight;
 
-    // Store banner height in dataset for rendering purposes
     this.canvas.dataset.bannerHeight = this.bannerHeight;
 
     console.log(
@@ -205,19 +204,39 @@ class MazeMemoryGame {
   resetLevel(restartSameLevel = false) {
     if (this.gameOver && !restartSameLevel) return;
 
-    const levelCycle = (this.level - 1) % CONFIG.LEVELS_PER_CYCLE;
-    const difficulty = Math.floor((this.level - 1) / CONFIG.LEVELS_PER_CYCLE);
-    this.mazeWidth = Math.min(
-      CONFIG.MAX_GRID_WIDTH,
-      CONFIG.MIN_GRID_SIZE +
-        (difficulty + levelCycle) * CONFIG.MAZE_SIZE_INCREMENT
+    const isLandscape = window.innerWidth > window.innerHeight;
+    const levelCycle = (this.level - 1) % this.CONFIG.LEVELS_PER_CYCLE;
+    const difficulty = Math.floor(
+      (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     );
-    this.mazeHeight = Math.min(
-      CONFIG.MAX_GRID_HEIGHT,
-      CONFIG.MIN_GRID_SIZE +
-        (difficulty + levelCycle) * CONFIG.MAZE_SIZE_INCREMENT
-    );
-    this.updateCanvasSize(); // Recalculate canvas size with new maze dimensions
+
+    // Wider-than-tall grid in landscape
+    this.mazeWidth = isLandscape
+      ? Math.min(
+          this.CONFIG.MAX_GRID_WIDTH,
+          this.CONFIG.MIN_GRID_SIZE +
+            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+        )
+      : Math.min(
+          this.CONFIG.MAX_GRID_WIDTH,
+          this.CONFIG.MIN_GRID_SIZE +
+            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+        );
+    this.mazeHeight = isLandscape
+      ? Math.min(
+          Math.floor(this.CONFIG.MAX_GRID_HEIGHT / 2),
+          this.CONFIG.MIN_GRID_SIZE +
+            Math.floor(
+              ((difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT) / 2
+            )
+        )
+      : Math.min(
+          this.CONFIG.MAX_GRID_HEIGHT,
+          this.CONFIG.MIN_GRID_SIZE +
+            (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+        );
+
+    this.updateCanvasSize();
 
     this.maze = this.generateMaze(this.mazeWidth, this.mazeHeight);
     const startPos = this.getRandomOpenPosition();
@@ -228,14 +247,14 @@ class MazeMemoryGame {
     this.chaosMonster = {
       pos: monsterPos.copy(),
       origin: monsterPos.copy(),
-      speed: CONFIG.CHAOS_MONSTER_SPEED + difficulty,
+      speed: this.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
       holdingTarget: null,
       target: null,
     };
 
     this.maxTargets =
-      CONFIG.TARGETS_BASE +
-      Math.floor((this.level - 1) / CONFIG.TARGETS_PER_LEVEL);
+      this.CONFIG.TARGETS_BASE +
+      Math.floor((this.level - 1) / this.CONFIG.TARGETS_PER_LEVEL);
     this.targets = [];
     this.assignTargetColors();
     for (let i = 1; i <= this.maxTargets; i++) {
@@ -258,7 +277,7 @@ class MazeMemoryGame {
     this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
     this.bullets = [];
-    this.powerUps = range(CONFIG.MAX_POWER_UP_COUNT).map(() => {
+    this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
       let pos;
       do {
         pos = this.getRandomOpenPosition();
@@ -275,15 +294,15 @@ class MazeMemoryGame {
 
     this.currentTarget = 1;
     this.showNumbers = true;
-    this.numberTimer = CONFIG.INITIAL_NUMBER_TIMER;
+    this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.marker = null;
 
     if (this.level === 1 && !localStorage.getItem("tankMemoryMazeState")) {
-      this.score.lives = CONFIG.MAX_MISSES;
+      this.score.lives = this.CONFIG.MAX_MISSES;
       this.score.total = 0;
       this.score.hits = 0;
     } else if (this.levelCleared && !restartSameLevel) {
-      this.score.lives = Math.min(this.score.lives + 1, CONFIG.MAX_MISSES);
+      this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
       const moveBonus = Math.max(0, 100 - this.score.moves * 2);
       this.score.total += this.score.hits * this.score.lives + moveBonus;
       this.level++;
