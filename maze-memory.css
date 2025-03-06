@@ -57,6 +57,7 @@ canvas {
   max-width: 90vw;
   flex-grow: 1;
   justify-content: space-between;
+  min-height: 0; /* Ensure flex child can shrink */
 }
 
 #joystick-container {
@@ -65,17 +66,23 @@ canvas {
   align-items: center;
   width: 100%;
   margin-bottom: auto;
+  flex-shrink: 0; /* Prevent joystick from shrinking */
 }
 
 #bottom-buttons {
   display: flex;
   gap: 20px;
-  margin-top: auto;
   padding: 10px 0;
+  margin-top: auto; /* Push buttons up, but allow adjustment */
+  /* Adjust position to avoid device toolbar */
+  position: relative;
+  bottom: 10vh; /* Move up 10% of viewport height to avoid toolbar */
+  width: 100%;
+  justify-content: center;
 }
 
 .joystick {
-  width: 150px; /* Increased size */
+  width: 150px;
   height: 150px;
   font-size: 28px;
   background-color: #ccc;
@@ -86,6 +93,12 @@ canvas {
   margin: 5px;
   position: relative;
   overflow: hidden;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .joystick {
+    display: none;
+  }
 }
 
 .joystick-active {
@@ -146,6 +159,7 @@ canvas {
 
   #bottom-buttons {
     margin-top: auto;
+    bottom: 5vh; /* Adjust for landscape */
   }
 }
 
@@ -156,5 +170,9 @@ canvas {
 
   #controls {
     max-width: 90vw;
+  }
+
+  #bottom-buttons {
+    bottom: 10vh; /* Adjust for portrait */
   }
 }
