@@ -232,6 +232,7 @@
 
         class MazeMemoryGame {
             CONFIG = {
+                MAX_POWER_UP_COUNT: 5,
                 BANNER_HEIGHT_PERCENT: 0.12, // Increased from 0.11 for more vertical space
                 SCOREBOARD_FONT_SCALE: 3,
                 MAZE_WALL_COLOR: 'gray',
@@ -419,7 +420,7 @@
                 this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
 
                 this.bullets = [];
-                this.powerUps = range(3).map(() => {
+                this.powerUps = range(this.CONFIG.MAX_POWER_UP_COUNT).map(() => {
                     let pos;
                     do {
                         pos = this.getRandomOpenPosition();
@@ -860,7 +861,8 @@
                     if (this.gameOverDelay <= 0) {
                         this.gameOver = false;
                         this.score.lives = this.CONFIG.MAX_MISSES;
-                        this.resetLevel(true);
+                        if (this.level > 1) this.level--; // Go back one level
+                        this.resetLevel(true); // Restart at previous level
                         this.saveGameState();
                     }
                 } else if (this.targets.every(t => t.hit)) {
