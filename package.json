@@ -4,7 +4,8 @@
   "description": "have a level where you are given the proper firing sequence, e.g 4,1,7,9,3,2,5,6,8 and then the numbers stay visible.",
   "main": "index.js",
   "scripts": {
-    "tsc": "tsc"
+    "tsc": "tsc",
+    "grok": "node ./scripts/generatePaste.js | xclip -selection clipboard"
   },
   "keywords": [],
   "author": "",
