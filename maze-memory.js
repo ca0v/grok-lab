@@ -28,7 +28,8 @@ class MazeMemoryGame {
     TANK_SPEED: 6,
     CHAOS_MONSTER_SPEED: 4,
     MIN_GRID_SIZE: 5,
-    MAX_GRID_SIZE: 15,
+    MAX_GRID_WIDTH: 15, // Maximum columns
+    MAX_GRID_HEIGHT: 15, // Maximum rows
     LEVELS_PER_CYCLE: 3,
     POWER_UP_REVEAL_DURATION: 3000,
     INITIAL_NUMBER_TIMER: 5000,
@@ -84,9 +85,9 @@ class MazeMemoryGame {
     this.initializeGameState();
     this.loadGameState();
 
+    // Adjust MAX_GRID_WIDTH based on screen size
     if (window.innerWidth <= 480) {
-      // Threshold for small screens (e.g., phones)
-      this.CONFIG.MAX_GRID_SIZE = 11;
+      this.CONFIG.MAX_GRID_WIDTH = 11; // Limit columns to 11 on small screens
     }
 
     this.initializeGameConstants();
@@ -109,12 +110,10 @@ class MazeMemoryGame {
     const bottomButtons = document.getElementById("bottom-buttons");
 
     if (isTouchSupported) {
-      // On touch devices, hide the M and P buttons and show the joystick
       bottomButtons.style.display = "none";
       joystickContainer.style.display = "flex";
       this.setupGestureEngine();
     } else {
-      // On non-touch devices, hide the joystick and show the M and P buttons
       joystickContainer.style.display = "none";
       bottomButtons.style.display = "flex";
     }
@@ -134,7 +133,8 @@ class MazeMemoryGame {
   }
 
   initializeGameConstants() {
-    this.mazeSize = this.CONFIG.MIN_GRID_SIZE;
+    this.mazeWidth = this.CONFIG.MIN_GRID_SIZE; // Separate width
+    this.mazeHeight = this.CONFIG.MIN_GRID_SIZE; // Separate height
     this.level = this.level || 1;
     this.maxTargets = this.CONFIG.TARGETS_BASE;
   }
@@ -191,14 +191,19 @@ class MazeMemoryGame {
     const difficulty = Math.floor(
       (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     );
-    this.mazeSize = Math.min(
-      this.CONFIG.MAX_GRID_SIZE,
+    this.mazeWidth = Math.min(
+      this.CONFIG.MAX_GRID_WIDTH,
+      this.CONFIG.MIN_GRID_SIZE +
+        (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
+    );
+    this.mazeHeight = Math.min(
+      this.CONFIG.MAX_GRID_HEIGHT,
       this.CONFIG.MIN_GRID_SIZE +
         (difficulty + levelCycle) * this.CONFIG.MAZE_SIZE_INCREMENT
     );
     this.updateCanvasSize();
 
-    this.maze = this.generateMaze();
+    this.maze = this.generateMaze(this.mazeWidth, this.mazeHeight);
     const startPos = this.getRandomOpenPosition();
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
@@ -280,20 +285,22 @@ class MazeMemoryGame {
       window.innerHeight -
       this.CONFIG.CANVAS_MARGIN.VERTICAL -
       this.controlsHeight;
-    const maxSize = Math.min(windowWidth, windowHeight);
-    this.canvas.width = maxSize;
-    this.bannerHeight = maxSize * this.CONFIG.BANNER_HEIGHT_PERCENT;
-    this.canvas.height = maxSize + this.bannerHeight;
-    this.gridSize = Math.floor(maxSize / this.mazeSize);
+    const maxSizeWidth = windowWidth; // Based on column count
+    const maxSizeHeight = windowHeight - this.bannerHeight; // Based on row count
+    this.canvas.width = maxSizeWidth;
+    this.bannerHeight = maxSizeWidth * this.CONFIG.BANNER_HEIGHT_PERCENT; // Adjust based on width
+    this.canvas.height = maxSizeHeight + this.bannerHeight;
+    this.gridSize = Math.floor(
+      Math.min(maxSizeWidth / this.mazeWidth, maxSizeHeight / this.mazeHeight)
+    );
     this.topBorderSize = this.bannerHeight;
     this.canvas.dataset.bannerHeight = this.bannerHeight;
   }
 
-  generateMaze() {
-    const size = this.mazeSize;
-    const maze = Array(size)
+  generateMaze(width, height) {
+    const maze = Array(height)
       .fill()
-      .map(() => Array(size).fill(1));
+      .map(() => Array(width).fill(1));
     const directions = [
       [0, 2],
       [2, 0],
@@ -315,9 +322,9 @@ class MazeMemoryGame {
         const newX = x + dx;
         if (
           newY > 0 &&
-          newY < size - 1 &&
+          newY < height - 1 &&
           newX > 0 &&
-          newX < size - 1 &&
+          newX < width - 1 &&
           maze[newY][newX] === 1
         ) {
           maze[y + dy / 2][x + dx / 2] = 0;
@@ -326,8 +333,8 @@ class MazeMemoryGame {
       }
     };
     carve(1, 1);
-    for (let x = 0; x < size; x++) {
-      maze[size - 1][x] = 1;
+    for (let x = 0; x < width; x++) {
+      maze[height - 1][x] = 1; // Solid bottom row
     }
     return maze;
   }
@@ -336,8 +343,8 @@ class MazeMemoryGame {
     let pos;
     do {
       pos = new Vector2D(
-        Math.floor(Math.random() * this.mazeSize),
-        Math.floor(Math.random() * (this.mazeSize - 1))
+        Math.floor(Math.random() * this.mazeWidth),
+        Math.floor(Math.random() * (this.mazeHeight - 1))
       );
     } while (this.maze[pos.y][pos.x] !== 0);
     return pos;
@@ -385,9 +392,9 @@ class MazeMemoryGame {
   isValidMove(pos) {
     return (
       pos.x >= 0 &&
-      pos.x < this.mazeSize &&
+      pos.x < this.mazeWidth &&
       pos.y >= 0 &&
-      pos.y < this.mazeSize &&
+      pos.y < this.mazeHeight &&
       this.maze[pos.y][pos.x] === 0
     );
   }
