@@ -26,7 +26,10 @@ export class EventHandler {
   handleInput(input) {
     switch (input.action) {
       case "moveFar": {
-        const pos = this.game.movementEngine.moveFar(this.game.tank.targetPos, input.dir);
+        const pos = this.game.movementEngine.moveFar(
+          this.game.tank.targetPos,
+          input.dir
+        );
         this.game.tank.targetPos = pos;
         this.game.tank.ignoreCollisions = false;
         this.game.movementEngine.updateTankDirection(input.dir);
@@ -34,14 +37,21 @@ export class EventHandler {
         break;
       }
       case "moveOne": {
-        // Removed the direction check to allow immediate movement
-        const newPos = this.game.tank.targetPos.add(this.game.DIRECTION_VECTORS[input.dir]);
-        if (this.game.isValidMove(newPos)) {
-          this.game.tank.targetPos = newPos;
-          this.game.tank.ignoreCollisions = false;
-          this.game.score.moves++;
+        // Check if tank direction matches input direction
+        if (this.game.tank.dir !== input.dir) {
+          // Only turn if direction differs
+          this.game.movementEngine.updateTankDirection(input.dir);
+        } else {
+          // Move one cell if direction matches
+          const newPos = this.game.tank.targetPos.add(
+            this.game.DIRECTION_VECTORS[input.dir]
+          );
+          if (this.game.isValidMove(newPos)) {
+            this.game.tank.targetPos = newPos;
+            this.game.tank.ignoreCollisions = false;
+            this.game.score.moves++;
+          }
         }
-        this.game.movementEngine.updateTankDirection(input.dir);
         break;
       }
       case "move": {
@@ -49,7 +59,10 @@ export class EventHandler {
           this.game.movementEngine.updateTankDirection(input.dir);
           this.game.lastButtonDirection = input.dir;
         } else if (this.game.lastButtonDirection === input.dir) {
-          const pos = this.game.movementEngine.moveFar(this.game.tank.targetPos, input.dir);
+          const pos = this.game.movementEngine.moveFar(
+            this.game.tank.targetPos,
+            input.dir
+          );
           this.game.tank.targetPos = pos;
           this.game.tank.dir = input.dir;
           this.game.tank.ignoreCollisions = false;
@@ -161,7 +174,8 @@ export class EventHandler {
       if (this.game.keysPressed[e.key]) return;
       this.game.keysPressed[e.key] = true;
 
-      const input = this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
+      const input =
+        this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
       if (input) {
         e.preventDefault();
         if (
