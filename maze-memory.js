@@ -28,8 +28,8 @@ class MazeMemoryGame {
     TANK_SPEED: 6,
     CHAOS_MONSTER_SPEED: 4,
     MIN_GRID_SIZE: 5,
-    MAX_GRID_WIDTH: 15, // Maximum columns
-    MAX_GRID_HEIGHT: 15, // Maximum rows
+    MAX_GRID_WIDTH: 15,
+    MAX_GRID_HEIGHT: 15,
     LEVELS_PER_CYCLE: 3,
     POWER_UP_REVEAL_DURATION: 3000,
     INITIAL_NUMBER_TIMER: 5000,
@@ -87,7 +87,7 @@ class MazeMemoryGame {
 
     // Adjust MAX_GRID_WIDTH based on screen size
     if (window.innerWidth <= 480) {
-      this.CONFIG.MAX_GRID_WIDTH = 11; // Limit columns to 11 on small screens
+      this.CONFIG.MAX_GRID_WIDTH = 11;
     }
 
     this.initializeGameConstants();
@@ -113,6 +113,11 @@ class MazeMemoryGame {
       bottomButtons.style.display = "none";
       joystickContainer.style.display = "flex";
       this.setupGestureEngine();
+      // Add tap listener for the canvas to detect monster taps
+      this.canvas.addEventListener(
+        "touchstart",
+        this.handleCanvasTap.bind(this)
+      );
     } else {
       joystickContainer.style.display = "none";
       bottomButtons.style.display = "flex";
@@ -132,9 +137,48 @@ class MazeMemoryGame {
     this.eventHandler.handleInput(input);
   }
 
+  handleCanvasTap(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const tapX = touch.clientX - canvasRect.left;
+    const tapY = touch.clientY - canvasRect.top;
+
+    // Convert tap coordinates to grid coordinates
+    const gridX = Math.floor(tapX / this.gridSize);
+    const gridY = Math.floor((tapY - this.topBorderSize) / this.gridSize);
+
+    // Check if the tap is within the chaos monster's bounds
+    if (this.chaosMonster) {
+      const monsterPos = this.chaosMonster.pos;
+      const monsterGridX = Math.floor(monsterPos.x);
+      const monsterGridY = Math.floor(monsterPos.y);
+      const monsterRadius = (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+
+      // Calculate the pixel position of the monster for more precise tap detection
+      const monsterPixelX = monsterPos.x * this.gridSize + this.gridSize / 2;
+      const monsterPixelY =
+        monsterPos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize;
+      const distance = Math.sqrt(
+        (tapX - monsterPixelX) ** 2 + (tapY - monsterPixelY) ** 2
+      );
+
+      if (distance <= monsterRadius) {
+        console.log(
+          "Chaos monster tapped! Moving tank to monster position:",
+          monsterPos
+        );
+        // Move the tank directly to the monster's position
+        this.tank.targetPos = monsterPos.copy();
+        this.tank.ignoreCollisions = true; // Allow the tank to move through walls
+        this.score.moves++; // Increment moves as this is a navigation action
+      }
+    }
+  }
+
   initializeGameConstants() {
-    this.mazeWidth = this.CONFIG.MIN_GRID_SIZE; // Separate width
-    this.mazeHeight = this.CONFIG.MIN_GRID_SIZE; // Separate height
+    this.mazeWidth = this.CONFIG.MIN_GRID_SIZE;
+    this.mazeHeight = this.CONFIG.MIN_GRID_SIZE;
     this.level = this.level || 1;
     this.maxTargets = this.CONFIG.TARGETS_BASE;
   }
@@ -285,10 +329,10 @@ class MazeMemoryGame {
       window.innerHeight -
       this.CONFIG.CANVAS_MARGIN.VERTICAL -
       this.controlsHeight;
-    const maxSizeWidth = windowWidth; // Based on column count
-    const maxSizeHeight = windowHeight - this.bannerHeight; // Based on row count
+    const maxSizeWidth = windowWidth;
+    const maxSizeHeight = windowHeight - this.bannerHeight;
     this.canvas.width = maxSizeWidth;
-    this.bannerHeight = maxSizeWidth * this.CONFIG.BANNER_HEIGHT_PERCENT; // Adjust based on width
+    this.bannerHeight = maxSizeWidth * this.CONFIG.BANNER_HEIGHT_PERCENT;
     this.canvas.height = maxSizeHeight + this.bannerHeight;
     this.gridSize = Math.floor(
       Math.min(maxSizeWidth / this.mazeWidth, maxSizeHeight / this.mazeHeight)
@@ -334,7 +378,7 @@ class MazeMemoryGame {
     };
     carve(1, 1);
     for (let x = 0; x < width; x++) {
-      maze[height - 1][x] = 1; // Solid bottom row
+      maze[height - 1][x] = 1;
     }
     return maze;
   }
