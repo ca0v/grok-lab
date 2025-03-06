@@ -1,5 +1,8 @@
 import { GestureEngine } from "./GestureEngine.js"
 import { Vector2D } from "./Vector2D.js"
+import { MovementEngine } from "./MovementEngine.js"
+import { RenderEngine } from "./RenderEngine.js"
+import { EventHandler } from "./EventHandler.js"
 
 // maze-memory.js
 function range(n) {
@@ -65,8 +68,8 @@ class MazeMemoryGame {
     down: { action: "move", dir: "down" },
     left: { action: "move", dir: "left" },
     right: { action: "move", dir: "right" },
-    marker: { action: "marker" }, // Keep marker for other buttons
-    peek: { action: "peek" }, // Keep peek for other buttons
+    marker: { action: "marker" },
+    peek: { action: "peek" },
   }
 
   DIRECTION_VECTORS = {
@@ -81,9 +84,15 @@ class MazeMemoryGame {
     this.initializeGameState()
     this.loadGameState()
     this.initializeGameConstants()
-    this.initializeEventHandlers()
+
+    // Initialize helper classes
+    this.movementEngine = new MovementEngine(this)
+    this.renderEngine = new RenderEngine(this)
+    this.eventHandler = new EventHandler(this)
+
+    this.eventHandler.initializeEventHandlers()
     this.resetLevel(true)
-    this.setupInputHandlers()
+    this.eventHandler.setupInputHandlers()
     window.addEventListener("resize", () => this.updateCanvasSize())
     this.lastTime = performance.now()
     this.accumulatedTime = 0
@@ -94,10 +103,14 @@ class MazeMemoryGame {
   }
 
   setupGestureEngine() {
-    const joystick = document.getElementById("shoot") // Reuse the shoot button as joystick
+    const joystick = document.getElementById("shoot")
     joystick.classList.remove("control-btn")
     joystick.classList.add("joystick")
     new GestureEngine(joystick, this)
+  }
+
+  handleInput(input) {
+    this.eventHandler.handleInput(input)
   }
 
   initializeGameConstants() {
@@ -149,21 +162,6 @@ class MazeMemoryGame {
     this.lastButtonDirection = null
     this.showAllTimer = 0
     this.showNextTimer = 0
-  }
-
-  initializeEventHandlers() {
-    this.eventHandlers = {
-      hit: () => {
-        this.score.hits++
-        this.currentTarget++
-        this.showAllTimer = 0
-      },
-      miss: (target) => {
-        if (target) target.flashTimer = this.CONFIG.FLASH_DURATION
-        this.showAllTimer = 0
-        this.score.lives--
-      },
-    }
   }
 
   resetLevel(restartSameLevel = false) {
@@ -247,157 +245,12 @@ class MazeMemoryGame {
       this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES)
       const moveBonus = Math.max(0, 100 - this.score.moves * 2)
       this.score.total += this.score.hits * this.score.lives + moveBonus
-      this.level++ // Only increment on level clear
+      this.level++
     }
 
     this.score.moves = 0
     this.levelCleared = false
     this.saveGameState()
-  }
-
-  setupInputHandlers() {
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "r" && (this.gameOver || this.levelCleared)) {
-        this.clearGameState()
-        this.level = 0
-        this.score.total = 0
-        this.score.hits = 0
-        this.resetLevel()
-        return
-      }
-      if (this.gameOver || this.levelCleared) return
-      if (this.keysPressed[e.key]) return
-      this.keysPressed[e.key] = true
-
-      const input = this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key]
-      if (input) {
-        e.preventDefault()
-        if (
-          this.showNumbers &&
-          this.numberTimer > 0 &&
-          input.action !== "shoot"
-        ) {
-          this.showNumbers = false
-          this.numberTimer = 0
-          return
-        }
-        this.handleInput(input)
-      }
-    })
-
-    document.addEventListener("keyup", (e) => {
-      this.keysPressed[e.key] = false
-    })
-
-    Object.keys(this.INPUT_MAP).forEach((id) => {
-      const button = document.getElementById(id)
-      if (button) {
-        // Exclude the shoot joystick from button handlers
-        const handleStart = (e) => {
-          if (this.gameOver || this.levelCleared) return
-          e.preventDefault()
-          if (this.showNumbers && this.numberTimer > 0) {
-            this.showNumbers = false
-            this.numberTimer = 0
-            return
-          }
-          this.handleInput(this.INPUT_MAP[id])
-        }
-        button.addEventListener("mousedown", handleStart)
-        button.addEventListener("touchstart", handleStart)
-        button.addEventListener("mouseup", (e) => e.preventDefault())
-        button.addEventListener("touchend", (e) => e.preventDefault())
-      }
-    })
-  }
-
-  handleInput(input) {
-    switch (input.action) {
-      case "moveFar": {
-        const pos = this.moveFar(this.tank.targetPos, input.dir)
-        this.tank.targetPos = pos
-        this.tank.ignoreCollisions = false
-        this.updateTankDirection(input.dir)
-        this.score.moves++
-        break
-      }
-      case "moveOne": {
-        if (this.tank.dir === input.dir) {
-          const newPos = this.tank.targetPos.add(
-            this.DIRECTION_VECTORS[input.dir]
-          )
-          if (this.isValidMove(newPos)) {
-            this.tank.targetPos = newPos
-            this.tank.ignoreCollisions = false
-            this.score.moves++
-          }
-        }
-        this.updateTankDirection(input.dir)
-        break
-      }
-      case "move": {
-        if (this.tank.dir !== input.dir) {
-          this.updateTankDirection(input.dir)
-          this.lastButtonDirection = input.dir
-        } else if (this.lastButtonDirection === input.dir) {
-          const pos = this.moveFar(this.tank.targetPos, input.dir)
-          this.tank.targetPos = pos
-          this.tank.dir = input.dir
-          this.tank.ignoreCollisions = false
-          this.score.moves++
-        }
-        break
-      }
-      case "shoot": {
-        let bullet = {
-          pos: this.tank.pos.copy().add(new Vector2D(0.5, 0.5)),
-          dir: this.tank.dir,
-        }
-        if (!this.checkBulletCollision(bullet)) {
-          this.bullets.push(bullet)
-        }
-        break
-      }
-      case "marker": {
-        if (!this.marker) {
-          this.marker = this.tank.targetPos.copy()
-          this.score.moves++
-        } else {
-          this.tank.targetPos = this.marker.copy()
-          this.tank.ignoreCollisions = true
-          this.marker = null
-          this.score.moves++
-        }
-        break
-      }
-      case "peek": {
-        this.showNextTimer = this.CONFIG.FLASH_DURATION
-        this.score.lives--
-        break
-      }
-    }
-  }
-
-  updateTankDirection(newDir) {
-    if (this.tank.dir !== newDir) {
-      this.tank.dir = newDir
-      this.tank.rotationStart = performance.now()
-      this.score.moves++
-      switch (newDir) {
-        case "up":
-          this.tank.targetAngle = -Math.PI / 2
-          break
-        case "down":
-          this.tank.targetAngle = Math.PI / 2
-          break
-        case "left":
-          this.tank.targetAngle = Math.PI
-          break
-        case "right":
-          this.tank.targetAngle = 0
-          break
-      }
-    }
   }
 
   updateCanvasSize() {
@@ -453,7 +306,7 @@ class MazeMemoryGame {
     }
     carve(1, 1)
     for (let x = 0; x < size; x++) {
-      maze[size - 1][x] = 1 // Solid bottom row
+      maze[size - 1][x] = 1
     }
     return maze
   }
@@ -508,33 +361,6 @@ class MazeMemoryGame {
     }
   }
 
-  moveFar(startPos, dir) {
-    let pos = startPos.copy()
-    const dirVec = this.DIRECTION_VECTORS[dir]
-    let fromDir
-    switch (dir) {
-      case "up":
-        fromDir = "down"
-        break
-      case "down":
-        fromDir = "up"
-        break
-      case "left":
-        fromDir = "right"
-        break
-      case "right":
-        fromDir = "left"
-        break
-    }
-    while (true) {
-      const nextPos = pos.add(dirVec)
-      if (!this.isValidMove(nextPos)) break
-      pos = nextPos
-      if (this.isIntersection(pos, fromDir)) break
-    }
-    return pos
-  }
-
   isValidMove(pos) {
     return (
       pos.x >= 0 &&
@@ -558,60 +384,6 @@ class MazeMemoryGame {
       if (this.isValidMove(newPos) && d.dir !== fromDir) openPaths++
     })
     return openPaths > 1
-  }
-
-  checkBulletCollision(bullet) {
-    let hitTarget = false
-    const bulletGrid = new Vector2D(
-      Math.floor(bullet.pos.x),
-      Math.floor(bullet.pos.y)
-    )
-
-    for (const t of this.targets) {
-      if (!t.hit && bulletGrid.equals(t.pos) && t.num === this.currentTarget) {
-        t.hit = true
-        this.eventHandlers.hit()
-        return true
-      }
-    }
-
-    this.targets.forEach((t) => {
-      if (!t.hit && bulletGrid.equals(t.pos)) {
-        hitTarget = true
-        this.eventHandlers.miss(t)
-      }
-    })
-
-    if (
-      this.powerUps.some((p) => bulletGrid.equals(p.pos) && p.opacity === 1)
-    ) {
-      this.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION
-      this.powerUps = this.powerUps.filter(
-        (p) => !(bulletGrid.equals(p.pos) && p.opacity === 1)
-      )
-      if (this.powerUps.length)
-        this.powerUps.at(-1).revealStart = performance.now()
-      hitTarget = true
-    }
-
-    if (!hitTarget) {
-      if (
-        bulletGrid.x >= 0 &&
-        bulletGrid.x < this.mazeSize &&
-        bulletGrid.y >= 0 &&
-        bulletGrid.y < this.mazeSize
-      ) {
-        if (this.maze[bulletGrid.y][bulletGrid.x] === 1) {
-          this.maze[bulletGrid.y][bulletGrid.x] = 0
-          this.eventHandlers.miss()
-          hitTarget = true
-        }
-      } else {
-        this.eventHandlers.miss()
-        hitTarget = true
-      }
-    }
-    return hitTarget
   }
 
   findNearestTarget(pos) {
@@ -649,68 +421,9 @@ class MazeMemoryGame {
     }
 
     if (!this.gameOver) {
-      if (!this.tank.pos.equals(this.tank.targetPos)) {
-        const dir = this.tank.targetPos.subtract(this.tank.pos)
-        const distance = dir.distanceTo(new Vector2D(0, 0))
-        const speed = this.CONFIG.TANK_SPEED * deltaTime
-        if (distance > speed) {
-          const move = dir.multiply(speed / distance)
-          this.tank.pos = this.tank.pos.add(move)
-        } else {
-          this.tank.pos = this.tank.targetPos.copy()
-          this.tank.ignoreCollisions = false
-        }
-      }
-
-      if (this.tank.rotationStart !== null) {
-        const elapsed = performance.now() - this.tank.rotationStart
-        if (elapsed < this.CONFIG.ROTATION_DURATION) {
-          const progress = elapsed / this.CONFIG.ROTATION_DURATION
-          this.tank.currentAngle +=
-            (this.tank.targetAngle - this.tank.currentAngle) * progress
-        } else {
-          this.tank.currentAngle = this.tank.targetAngle
-          this.tank.rotationStart = null
-        }
-      }
-
-      if (this.chaosMonster) {
-        if (!this.chaosMonster.holdingTarget) {
-          if (this.chaosMonster.target) {
-            const dx = this.chaosMonster.target.pos.x - this.chaosMonster.pos.x
-            const dy = this.chaosMonster.target.pos.y - this.chaosMonster.pos.y
-            const distance = Math.sqrt(dx * dx + dy * dy)
-            if (distance > 0.001) {
-              const move = new Vector2D(dx, dy).multiply(
-                Math.min(this.chaosMonster.speed * deltaTime, distance) /
-                  distance
-              )
-              this.chaosMonster.pos = this.chaosMonster.pos.add(move)
-            } else {
-              this.chaosMonster.holdingTarget = this.chaosMonster.target
-              this.chaosMonster.target = null
-            }
-          } else {
-            this.chaosMonster.target = this.findNearestTarget(
-              this.chaosMonster.pos
-            )
-          }
-        } else {
-          const dx = this.chaosMonster.origin.x - this.chaosMonster.pos.x
-          const dy = this.chaosMonster.origin.y - this.chaosMonster.pos.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          if (distance > 0.001) {
-            const move = new Vector2D(dx, dy).multiply(
-              Math.min(this.chaosMonster.speed * deltaTime, distance) / distance
-            )
-            this.chaosMonster.pos = this.chaosMonster.pos.add(move)
-          } else {
-            this.chaosMonster.holdingTarget.pos =
-              this.chaosMonster.origin.copy()
-            this.chaosMonster.holdingTarget = null
-          }
-        }
-      }
+      this.movementEngine.updateTank(deltaTime)
+      this.movementEngine.updateChaosMonster(deltaTime)
+      this.movementEngine.updateBullets(deltaTime)
 
       this.powerUps.forEach((p) => {
         if (p.revealStart !== null) {
@@ -731,12 +444,6 @@ class MazeMemoryGame {
           if (t.flashTimer < 0) t.flashTimer = 0
         }
       })
-
-      this.bullets = this.bullets.filter((b) => {
-        const dirVec = this.DIRECTION_VECTORS[b.dir]
-        b.pos = b.pos.add(dirVec.multiply(this.CONFIG.BULLET_SPEED * deltaTime))
-        return !this.checkBulletCollision(b)
-      })
     }
 
     if (this.score.lives <= 0) {
@@ -755,306 +462,6 @@ class MazeMemoryGame {
     } else if (this.targets.every((t) => t.hit)) {
       this.levelCleared = true
       setTimeout(() => this.resetLevel(), this.CONFIG.LEVEL_CLEAR_DELAY)
-    }
-  }
-
-  draw() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    this.drawMaze()
-    this.drawTargets()
-    this.drawPowerUp()
-    this.drawMarker(
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--grid-bg"
-      ) === "#333"
-        ? "#fff"
-        : "#000"
-    )
-    this.drawTank()
-    this.drawChaosMonster()
-    this.drawBullets()
-    this.drawScoreboard(
-      getComputedStyle(document.documentElement).getPropertyValue(
-        "--grid-bg"
-      ) === "#333"
-    )
-    this.drawMessages()
-  }
-
-  drawMaze() {
-    const bgColor = getComputedStyle(document.documentElement)
-      .getPropertyValue("--grid-bg")
-      .trim()
-    for (let y = 0; y < this.mazeSize; y++) {
-      for (let x = 0; x < this.mazeSize; x++) {
-        this.ctx.fillStyle =
-          this.maze[y][x] === 1 ? this.CONFIG.MAZE_WALL_COLOR : bgColor
-        this.ctx.fillRect(
-          x * this.gridSize,
-          y * this.gridSize + this.topBorderSize,
-          this.gridSize,
-          this.gridSize
-        )
-      }
-    }
-  }
-
-  drawTargets() {
-    this.targets.forEach((t) => {
-      if (!t.hit) {
-        const targetRadius =
-          (this.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE
-        this.ctx.fillStyle = this.CONFIG.TARGET_OUTLINE_COLOR
-        this.ctx.beginPath()
-        this.ctx.arc(
-          t.pos.x * this.gridSize + this.gridSize / 2,
-          t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
-          targetRadius + 2,
-          0,
-          Math.PI * 2
-        )
-        this.ctx.fill()
-        this.ctx.fillStyle = t.color
-        this.ctx.beginPath()
-        this.ctx.arc(
-          t.pos.x * this.gridSize + this.gridSize / 2,
-          t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
-          targetRadius,
-          0,
-          Math.PI * 2
-        )
-        this.ctx.fill()
-
-        if (
-          this.showNumbers ||
-          t.flashTimer > 0 ||
-          this.showAllTimer > 0 ||
-          (t.num === this.currentTarget && this.showNextTimer > 0)
-        ) {
-          this.ctx.fillStyle = "white"
-          this.ctx.font = `${Math.floor(targetRadius)}px Arial`
-          this.ctx.textAlign = "center"
-          this.ctx.textBaseline = "middle"
-          this.ctx.fillText(
-            t.num,
-            t.pos.x * this.gridSize + this.gridSize / 2,
-            t.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize
-          )
-        }
-      }
-    })
-  }
-
-  drawMarker(color) {
-    if (this.marker) {
-      this.ctx.fillStyle = color
-      this.ctx.font = `${this.CONFIG.MARKER_FONT_SIZE}px Arial`
-      this.ctx.textAlign = "center"
-      this.ctx.textBaseline = "middle"
-      this.ctx.fillText(
-        "📍",
-        this.marker.x * this.gridSize + this.gridSize / 2,
-        this.marker.y * this.gridSize + this.gridSize / 2 + this.topBorderSize
-      )
-    }
-  }
-
-  drawTank() {
-    this.ctx.save()
-    this.ctx.translate(
-      this.tank.pos.x * this.gridSize + this.gridSize / 2,
-      this.tank.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize
-    )
-    this.ctx.fillStyle = this.CONFIG.TANK_COLOR
-    this.ctx.beginPath()
-    this.ctx.arc(
-      0,
-      0,
-      (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE,
-      0,
-      Math.PI * 2
-    )
-    this.ctx.fill()
-    this.ctx.rotate(this.tank.currentAngle)
-    this.ctx.fillStyle = "white"
-    this.ctx.font = `${this.CONFIG.TANK_FONT_SIZE}px Arial`
-    this.ctx.textAlign = "center"
-    this.ctx.textBaseline = "middle"
-    this.ctx.fillText("➔", 0, 0)
-    this.ctx.restore()
-  }
-
-  drawChaosMonster() {
-    if (this.chaosMonster) {
-      this.ctx.save()
-      this.ctx.translate(
-        this.chaosMonster.pos.x * this.gridSize + this.gridSize / 2,
-        this.chaosMonster.pos.y * this.gridSize +
-          this.gridSize / 2 +
-          this.topBorderSize
-      )
-      this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR
-      this.ctx.beginPath()
-      this.ctx.arc(
-        0,
-        0,
-        (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE,
-        0,
-        Math.PI * 2
-      )
-      this.ctx.fill()
-      this.ctx.restore()
-    }
-  }
-
-  drawBullets() {
-    this.ctx.fillStyle = this.CONFIG.BULLET_COLOR
-    this.bullets.forEach((b) => {
-      this.ctx.fillRect(
-        b.pos.x * this.gridSize,
-        b.pos.y * this.gridSize + this.topBorderSize,
-        this.CONFIG.BULLET_SIZE,
-        this.CONFIG.BULLET_SIZE
-      )
-    })
-  }
-
-  drawPowerUp() {
-    this.powerUps.forEach((p) => {
-      if (p.opacity > 0) {
-        this.ctx.globalAlpha = p.opacity
-        this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR
-        this.ctx.beginPath()
-        this.ctx.arc(
-          p.pos.x * this.gridSize + this.gridSize / 2,
-          p.pos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize,
-          this.gridSize * this.CONFIG.POWER_UP_RADIUS_SCALE,
-          0,
-          Math.PI * 2
-        )
-        this.ctx.fill()
-        this.ctx.globalAlpha = 1
-      }
-    })
-  }
-
-  drawScoreboard(isDarkMode) {
-    const fontSize = Math.floor(
-      this.bannerHeight / this.CONFIG.SCOREBOARD_FONT_SCALE
-    )
-    this.ctx.fillStyle = isDarkMode ? "#222" : "#ddd"
-    this.ctx.fillRect(0, 0, this.canvas.width, this.bannerHeight)
-    this.ctx.shadowBlur = 5
-    this.ctx.shadowColor = "rgba(0, 0, 0, 0.3)"
-    this.ctx.shadowOffsetX = 2
-    this.ctx.shadowOffsetY = 2
-
-    // Use slightly larger font for labels, smaller for values
-    this.ctx.font = `${fontSize * 1.1}px Arial` // Larger font for labels
-    this.ctx.textBaseline = "middle"
-
-    // First Row: Labels
-    // Hits (left column)
-    this.ctx.fillStyle = isDarkMode ? "#fff" : "black"
-    this.ctx.textAlign = "center"
-    this.ctx.fillText("Hits", this.canvas.width * 0.2, this.bannerHeight * 0.4) // Left column, middle of top row
-
-    // Level (center column)
-    this.ctx.fillText(
-      `Level: ${this.level}`,
-      this.canvas.width * 0.5,
-      this.bannerHeight * 0.4
-    ) // Center column, middle of top row
-
-    // Lives (right column)
-    this.ctx.fillText("Lives", this.canvas.width * 0.8, this.bannerHeight * 0.4) // Right column, middle of top row
-
-    // Second Row: Values
-    this.ctx.font = `${fontSize}px Arial` // Smaller font for values
-    // Hit count (left column)
-    this.ctx.fillStyle = isDarkMode ? "#ccc" : "black"
-    this.ctx.fillText(
-      this.score.hits,
-      this.canvas.width * 0.2,
-      this.bannerHeight * 0.7
-    ) // Left column, middle of bottom row
-
-    // Score (center column)
-    this.ctx.fillStyle = isDarkMode ? "#fff" : "black"
-    this.ctx.fillText(
-      `Score: ${this.score.total} (Moves: ${this.score.moves})`,
-      this.canvas.width * 0.5,
-      this.bannerHeight * 0.7
-    ) // Center column, middle of bottom row
-
-    // Lives + Power-ups (right column)
-    this.ctx.fillStyle = "green"
-    const circleRadius = fontSize / 4 // Smaller circles
-    const circleSpacing = circleRadius * 2
-    const totalIconsWidth =
-      (this.score.lives + this.powerUps.length - 1) * circleSpacing +
-      2 * circleRadius
-    const iconsStartX = this.canvas.width * 0.8 - totalIconsWidth / 2 // Center horizontally in right column
-
-    // Draw Lives (green circles)
-    for (let i = 0; i < this.score.lives; i++) {
-      this.ctx.beginPath()
-      this.ctx.arc(
-        iconsStartX + i * circleSpacing + circleRadius,
-        this.bannerHeight * 0.7,
-        circleRadius,
-        0,
-        Math.PI * 2
-      )
-      this.ctx.fill()
-    }
-
-    // Draw Power-ups (yellow circles) after Lives
-    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR // Yellow
-    for (let i = 0; i < this.powerUps.length; i++) {
-      this.ctx.beginPath()
-      this.ctx.arc(
-        iconsStartX + (this.score.lives + i) * circleSpacing + circleRadius,
-        this.bannerHeight * 0.7,
-        circleRadius,
-        0,
-        Math.PI * 2
-      )
-      this.ctx.fill()
-    }
-  }
-
-  drawMessages() {
-    if (this.levelCleared) {
-      this.ctx.fillStyle = getComputedStyle(document.documentElement)
-        .getPropertyValue("--textColor")
-        .trim()
-      this.ctx.font = `${Math.floor(
-        this.canvas.height / this.CONFIG.MESSAGE_FONT_SCALE
-      )}px Arial`
-      this.ctx.textAlign = "center"
-      this.ctx.textBaseline = "middle"
-      this.ctx.fillText(
-        "Level Cleared! Starting New Level...",
-        this.canvas.width / 2,
-        this.canvas.height / 2
-      )
-    }
-
-    if (this.gameOver) {
-      this.ctx.fillStyle = getComputedStyle(document.documentElement)
-        .getPropertyValue("--textColor")
-        .trim()
-      this.ctx.font = `${Math.floor(
-        this.canvas.height / this.CONFIG.MESSAGE_FONT_SCALE
-      )}px Arial`
-      this.ctx.textAlign = "center"
-      this.ctx.textBaseline = "middle"
-      this.ctx.fillText(
-        "Game Over! Restarting...",
-        this.canvas.width / 2,
-        this.canvas.height / 2
-      )
     }
   }
 
@@ -1093,12 +500,11 @@ class MazeMemoryGame {
       this.accumulatedTime -= this.CONFIG.FRAME_DELTA
     }
 
-    this.draw()
+    this.renderEngine.draw()
     requestAnimationFrame((time) => this.gameLoop(time))
   }
 }
 
 export function run() {
-  // Start the game
   new MazeMemoryGame()
 }
