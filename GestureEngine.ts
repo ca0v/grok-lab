@@ -8,8 +8,8 @@ export class GestureEngine {
   threshold: number = 30;
   isActive: boolean = false;
   touchStartTime: number | null = null;
-  longPressThreshold: number = 500;
-  tapDurationThreshold: number = 300;
+  longPressThreshold: number = 300;
+  tapDurationThreshold: number = 200;
   longPressTimer: number | null = null;
   hasMoved: boolean = false;
 
