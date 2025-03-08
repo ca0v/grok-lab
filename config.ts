@@ -40,6 +40,7 @@ export const CONFIG = {
   MARKER_FONT_SIZE: 30,
   TANK_FONT_SIZE: 20,
   TARGET_FONT_SIZE: 30,
+  DEVICE_FLAG: {small: window.innerWidth <= 768}
 } as const;
 
 export const INPUT_MAP = {

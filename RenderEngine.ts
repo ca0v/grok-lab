@@ -229,42 +229,37 @@ export class RenderEngine {
     }
   }
 
+  // Convert column (0 to 11) to pixel x-coordinate
+  private col(column: number): number {
+    const colWidth = this.game.canvas.width / 12; // 12 columns
+    return column * colWidth;
+  }
+
+  // Convert row (0 to 3) to pixel y-coordinate within the banner
+  private row(row: number): number {
+    const rowHeight = this.game.topBorderSize / 4; // 4 rows
+    return row * rowHeight;
+  }
+
   drawScoreboard() {
+    const isSmallDevice = this.CONFIG.DEVICE_FLAG.small;
+
     this.ctx.fillStyle = "white";
     const bannerHeight =
       this.game.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
-    const fontSize = bannerHeight * 0.3;
+    const fontSize = bannerHeight * 0.3 * (isSmallDevice ? 1.5 : 1);
     this.ctx.font = `${fontSize}px Arial`;
     this.ctx.textAlign = "left";
     this.ctx.textBaseline = "top";
 
-    // Calculate line height to fit within banner (topBorderSize)
-    const lineHeight = Math.min(fontSize * 1.2, this.game.topBorderSize / 3); // Fit up to 3 lines
-    const padding = 10; // Left/right padding
-    const circleRadius = fontSize / 2; // Circle size based on font size
+    const circleRadius = fontSize / 3; // Circle size based on font size
 
-    // Left side: Lives as TANK_COLOR circles, PowerUps as POWER_UP_COLOR circles
+    // Left side: Lives as TANK_COLOR circles (col 0-2, row 0)
     const livesCount = this.game.score.lives;
     this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "blue"
     for (let i = 0; i < livesCount; i++) {
-      const x = padding + i * (circleRadius * 2 + 2); // Space circles horizontally
-      const y = padding;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        x + circleRadius,
-        y + circleRadius,
-        circleRadius,
-        0,
-        Math.PI * 2
-      ); // Offset by radius for proper positioning
-      this.ctx.fill();
-    }
-
-    const powerUpCount = this.game.powerUps.length;
-    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR; // e.g., "yellow"
-    for (let i = 0; i < powerUpCount; i++) {
-      const x = padding + i * (circleRadius * 2 + 2); // Space circles horizontally
-      const y = padding + lineHeight;
+      const x = this.col(i / 2); // Col 0 to 2
+      const y = this.row(0); // Row 0
       this.ctx.beginPath();
       this.ctx.arc(
         x + circleRadius,
@@ -276,24 +271,42 @@ export class RenderEngine {
       this.ctx.fill();
     }
 
-    // Center: Total, Moves
+    // Left side: PowerUps as POWER_UP_COLOR circles (col 0-2, row 1)
+    const powerUpCount = this.game.powerUps.length;
+    this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR; // e.g., "yellow"
+    for (let i = 0; i < powerUpCount; i++) {
+      const x = this.col(i / 2); // Col 0 to 2
+      const y = this.row(2); // Row 1
+      this.ctx.beginPath();
+      this.ctx.arc(
+        x + circleRadius,
+        y + circleRadius,
+        circleRadius,
+        0,
+        Math.PI * 2
+      );
+      this.ctx.fill();
+    }
+
+    // Center: Total (col 6, row 0)
     this.ctx.fillStyle = "white";
     this.ctx.textAlign = "center";
-    const total = `Score: ${this.game.score.total}`;
-    const moves = `Moves: ${this.game.score.moves}`;
-    this.ctx.fillText(total, this.game.canvas.width / 2, padding);
-    this.ctx.fillText(moves, this.game.canvas.width / 2, padding + lineHeight);
 
-    // Right side: Level, Hits
-    this.ctx.textAlign = "right";
-    const level = `Level: ${this.game.level}`;
-    const hits = `Hits: ${this.game.score.hits}`;
-    this.ctx.fillText(level, this.game.canvas.width - padding, padding);
-    this.ctx.fillText(
-      hits,
-      this.game.canvas.width - padding,
-      padding + lineHeight
-    );
+    if (!isSmallDevice) {
+      this.ctx.fillText("SCORE", this.col(4), this.row(0));
+      this.ctx.fillText(this.game.score.total + "", this.col(4), this.row(2));
+      this.ctx.fillText("MOVES", this.col(6), this.row(0));
+      this.ctx.fillText(this.game.score.moves + "", this.col(6), this.row(2));
+      this.ctx.fillText("HITS", this.col(8), this.row(0));
+      this.ctx.fillText(this.game.score.hits + "", this.col(8), this.row(2));
+      this.ctx.fillText("LEVEL", this.col(10), this.row(0));
+      this.ctx.fillText(this.game.level + "", this.col(10), this.row(2));
+    } else {
+      this.ctx.fillText("SCORE", this.col(6), this.row(0));
+      this.ctx.fillText(this.game.score.total + "", this.col(6), this.row(2));
+      this.ctx.fillText("LEVEL", this.col(10), this.row(0));
+      this.ctx.fillText(this.game.level + "", this.col(10), this.row(2));
+    }
   }
 
   drawMessages() {
