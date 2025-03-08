@@ -38,6 +38,7 @@ interface Target {
 interface Bullet {
   pos: Vector2D;
   dir: string;
+  lifeDeducted: boolean; // New property to track life deduction
 }
 
 interface PowerUp {
@@ -76,7 +77,6 @@ export class MazeMemoryGame {
   bullets: Bullet[];
   powerUps: PowerUp[];
   currentTarget: number;
-  showNumbers: boolean;
   numberTimer: number;
   keysPressed: { [key: string]: boolean };
   score: Score;
@@ -206,7 +206,6 @@ export class MazeMemoryGame {
     this.bullets = [];
     this.powerUps = [];
     this.currentTarget = 1;
-    this.showNumbers = true;
     this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.keysPressed = {};
     this.score = this.score || {
@@ -316,7 +315,6 @@ export class MazeMemoryGame {
     }
 
     this.currentTarget = 1;
-    this.showNumbers = true;
     this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.marker = null;
 
@@ -535,9 +533,9 @@ export class MazeMemoryGame {
   update(deltaTime: number) {
     if (this.levelCleared) return;
 
-    if (this.showNumbers && this.numberTimer > 0) {
+    if (this.numberTimer > 0) {
       this.numberTimer -= deltaTime * 1000;
-      if (this.numberTimer <= 0) this.showNumbers = false;
+      if (this.numberTimer < 0) this.numberTimer = 0;
       return;
     }
 

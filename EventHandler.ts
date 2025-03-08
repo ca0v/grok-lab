@@ -46,14 +46,7 @@ export class EventHandler {
         e.preventDefault();
         this.handleInput(input);
         // Hide numbers after handling input, if applicable
-        if (
-          this.game.showNumbers &&
-          this.game.numberTimer > 0 &&
-          input.action !== "shoot"
-        ) {
-          this.game.showNumbers = false;
-          this.game.numberTimer = 0;
-        }
+        this.game.numberTimer = 0;
       }
     });
 
@@ -151,6 +144,7 @@ export class EventHandler {
         this.game.bullets.push({
           pos: bulletOrigin,
           dir: tank.dir,
+          lifeDeducted: false,
         });
         break;
 

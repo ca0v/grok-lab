@@ -155,9 +155,18 @@ export class MovementEngine {
       const bulletGridPos = bullet.pos.round();
       const mazeValue = this.getMazeValue(bulletGridPos);
       if (mazeValue === -1) {
-        return false;
+        return false; // Bullet hits boundary, remove it
       } else if (mazeValue === 1) {
-        this.setMazeValue(bulletGridPos, 0);
+        this.setMazeValue(bulletGridPos, 0); // Destroy wall
+        if (!bullet.lifeDeducted) {
+          this.game.score.lives--; // Deduct one life only if not deducted before
+          bullet.lifeDeducted = true; // Mark life as deducted
+          console.log(
+            "Bullet hit a wall, lost one life. Lives remaining:",
+            this.game.score.lives
+          );
+        }
+        // Bullet continues through the destroyed wall
       }
 
       const hitTarget = this.game.targets.find((target) => {
@@ -179,16 +188,14 @@ export class MovementEngine {
       if (hitTarget) {
         if (hitTarget.num === this.game.currentTarget) {
           hitTarget.hit = true;
-          // Correct target: remove it and increment hits
           const index = this.game.targets.indexOf(hitTarget);
           this.game.targets.splice(index, 1);
           hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
           this.game.score.hits++;
           this.game.currentTarget++;
         } else {
-          // Out of sequence: count as a miss and flash the target
           this.game.score.lives--;
-          hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION; // Flash the missed target
+          hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
           console.log(
             `Miss! Hit target #${hitTarget.num}, expected #${this.game.currentTarget}`
           );
@@ -207,7 +214,6 @@ export class MovementEngine {
       if (hitPowerUp) {
         const index = this.game.powerUps.indexOf(hitPowerUp);
         this.game.powerUps.splice(index, 1);
-        this.game.showNumbers = true;
         this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER;
         return false;
       }

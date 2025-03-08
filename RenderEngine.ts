@@ -52,43 +52,50 @@ export class RenderEngine {
         this.game.topBorderSize
     );
     this.ctx.rotate(this.game.tank.currentAngle + Math.PI / 2); // Add 90 degrees clockwise
-
-    const tankSize = this.game.gridSize * this.CONFIG.TANK_RADIUS_SCALE; // Base size (e.g., 0.5 * gridSize)
-    const bodyWidth = tankSize * 0.8; // Narrower body
-    const bodyHeight = tankSize * 1.2; // Taller body
-    const treadWidth = tankSize * 0.3; // Narrow treads
-    const treadHeight = bodyHeight * 0.6; // Shorter treads
-    const barrelLength = tankSize * 0.6; // Vertical barrel
-    const barrelWidth = tankSize * 0.2; // Thick barrel
-
-    // Draw body (central rectangle)
-    this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "green" or blue
-    this.ctx.fillRect(-bodyWidth / 2, -bodyHeight / 2, bodyWidth, bodyHeight);
-
-    // Draw left tread
-    this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
-    this.ctx.fillRect(
-      -bodyWidth / 2 - treadWidth,
-      -treadHeight / 2,
-      treadWidth,
-      treadHeight
-    );
-
-    // Draw right tread
-    this.ctx.fillStyle = this.CONFIG.TANK_COLOR;
-    this.ctx.fillRect(bodyWidth / 2, -treadHeight / 2, treadWidth, treadHeight);
-
-    // Draw barrel (vertical line upward, now right after rotation)
-    this.ctx.strokeStyle = this.CONFIG.TANK_COLOR;
-    this.ctx.lineWidth = barrelWidth;
-    this.ctx.beginPath();
-    this.ctx.moveTo(0, -bodyHeight / 2);
-    this.ctx.lineTo(0, -bodyHeight / 2 - barrelLength);
-    this.ctx.stroke();
-
+  
+    const tankSize = this.game.gridSize * this.CONFIG.TANK_RADIUS_SCALE; // e.g., 0.5 * gridSize
+    const cellSize = (tankSize * 2) / 16; // 16x16 grid, fit within tankSize * 2
+    const center = (16 / 2) * cellSize; // Center of 16x16 grid
+  
+    // Adjusted 16x16 pixel map
+    const pixelMap = [
+      "0000000110000000",
+      "0000000BB0000000",
+      "0000000110000000",
+      "0000000110000000",
+      "0010100110010100",
+      "0111100110011110",
+      "0111111111111110",
+      "0111111111111110",
+      "0111111111111110",
+      "0111111111111110",
+      "0111111111111110",
+      "0111110000111110",
+      "0010100000010100",
+      "0000000000000000",
+      "0000000000000000",
+      "0000000000000000",
+    ];
+  
+    for (let y = 0; y < 16; y++) {
+      const row = pixelMap[y];
+      for (let x = 0; x < 16; x++) {
+        if (row[x] !== "0") {
+          // Override fillStyle with BULLET_COLOR for "B" cells
+          this.ctx.fillStyle = row[x] === "B" ? this.CONFIG.BULLET_COLOR : this.CONFIG.TANK_COLOR;
+          this.ctx.fillRect(
+            x * cellSize - center,
+            y * cellSize - center,
+            cellSize,
+            cellSize
+          );
+        }
+      }
+    }
+  
     this.ctx.restore();
   }
-
+  
   drawTargets() {
     this.game.targets.forEach((target) => {
       if (!target.hit || target.flashTimer > 0) {
@@ -117,7 +124,7 @@ export class RenderEngine {
         this.ctx.fill();
 
         if (
-          this.game.showNumbers ||
+          this.game.numberTimer > 0 ||
           target.flashTimer > 0 ||
           (this.game.showNextTimer > 0 &&
             target.num === this.game.currentTarget)
