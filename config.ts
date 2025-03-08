@@ -2,8 +2,7 @@ import { Vector2D } from "./Vector2D.js"; // Will update to .ts
 
 export const CONFIG = {
   MAX_POWER_UP_COUNT: 5,
-  BANNER_HEIGHT_RATIO: 0.12, // Renamed from BANNER_HEIGHT_PERCENT
-  SCOREBOARD_FONT_SCALE: 3,
+  BANNER_HEIGHT_RATIO: 0.08,
   MAZE_WALL_COLOR: "gray",
   TANK_COLOR: "rgba(0, 0, 255, 0.8)",
   BULLET_COLOR: "red",

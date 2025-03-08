@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "tsc": "tsc",
+    "dev": "tsc -w",
     "grok": "node ./scripts/generatePaste.js | xclip -selection clipboard"
   },
   "keywords": [],

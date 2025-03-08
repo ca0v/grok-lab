@@ -44,6 +44,8 @@ export class EventHandler {
         this.INPUT_MAP[e.key as keyof typeof this.INPUT_MAP];
       if (input) {
         e.preventDefault();
+        this.handleInput(input);
+        // Hide numbers after handling input, if applicable
         if (
           this.game.showNumbers &&
           this.game.numberTimer > 0 &&
@@ -51,9 +53,7 @@ export class EventHandler {
         ) {
           this.game.showNumbers = false;
           this.game.numberTimer = 0;
-          return;
         }
-        this.handleInput(input);
       }
     });
 

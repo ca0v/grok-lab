@@ -223,7 +223,9 @@ export class RenderEngine {
 
   drawScoreboard() {
     this.ctx.fillStyle = "white";
-    const fontSize = this.game.gridSize / this.CONFIG.SCOREBOARD_FONT_SCALE; // e.g., 40 / 3 ≈ 13px
+    const bannerHeight =
+      this.game.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
+    const fontSize = bannerHeight * 0.3;
     this.ctx.font = `${fontSize}px Arial`;
     this.ctx.textAlign = "left";
     this.ctx.textBaseline = "top";
