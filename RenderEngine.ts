@@ -63,18 +63,18 @@ export class RenderEngine {
       "0000000BB0000000",
       "0000000110000000",
       "0000000110000000",
-      "0010100110010100",
+      "0000000110000000",
+      "0111100110011110",
       "0111100110011110",
       "0111111111111110",
       "0111111111111110",
       "0111111111111110",
       "0111111111111110",
       "0111111111111110",
-      "0111110000111110",
-      "0010100000010100",
-      "0000000000000000",
-      "0000000000000000",
-      "0000000000000000",
+      "0111111111111110",
+      "0111111111111110",
+      "0111000000001110",
+      "0111000000001110",
     ];
 
     for (let y = 0; y < 16; y++) {
@@ -254,12 +254,11 @@ export class RenderEngine {
 
     const circleRadius = fontSize / 3; // Circle size based on font size
 
-    // Left side: Lives as TANK_COLOR circles (col 0-2, row 0)
     const livesCount = this.game.score.lives;
     this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "blue"
     for (let i = 0; i < livesCount; i++) {
-      const x = this.col(i / 2); // Col 0 to 2
-      const y = this.row(0); // Row 0
+      const x = this.col(0.5 * (1 + i)); // Col 0 to 2
+      const y = this.row(0.5); // Row 0
       this.ctx.beginPath();
       this.ctx.arc(
         x + circleRadius,
@@ -271,11 +270,10 @@ export class RenderEngine {
       this.ctx.fill();
     }
 
-    // Left side: PowerUps as POWER_UP_COLOR circles (col 0-2, row 1)
     const powerUpCount = this.game.powerUps.length;
     this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR; // e.g., "yellow"
     for (let i = 0; i < powerUpCount; i++) {
-      const x = this.col(i / 2); // Col 0 to 2
+      const x = this.col(0.5 * (1 + i)); // Col 0 to 2
       const y = this.row(2); // Row 1
       this.ctx.beginPath();
       this.ctx.arc(
