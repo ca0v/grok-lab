@@ -282,28 +282,39 @@ export class MazeMemoryGame {
       this.CONFIG.CANVAS_MARGIN.VERTICAL -
       this.controlsHeight;
 
-    const majorCellCount = clamp(
-      this.CONFIG.MIN_CELL_COUNT + Math.floor(this.level / 3),
-      this.CONFIG.MIN_CELL_COUNT,
-      this.CONFIG.MAX_CELL_COUNT
+    const bannerHeight = windowHeight * this.CONFIG.BANNER_HEIGHT_RATIO;
+
+    const gridSize = { x: windowWidth, y: windowHeight - bannerHeight };
+
+    const majorCellCount = makeOdd(
+      clamp(
+        this.CONFIG.MIN_CELL_COUNT + Math.floor(this.level / 3),
+        this.CONFIG.MIN_CELL_COUNT,
+        this.CONFIG.MAX_CELL_COUNT
+      )
     );
 
-    let bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;
-    const maxGridHeight = windowHeight - bannerHeight;
+    const cellSize = {
+      x: Math.floor(gridSize.x / majorCellCount),
+      y: Math.floor(gridSize.y / majorCellCount),
+    };
 
-    const cellSizeWidth = Math.floor(windowWidth / majorCellCount);
-    const cellSizeHeight = Math.floor(maxGridHeight / majorCellCount);
+    this.cellSize = Math.max(cellSize.x, cellSize.y);
 
-    // Use clamp for cellSize
-    this.cellSize = Math.min(cellSizeWidth, cellSizeHeight);
-
-    // Use clamp for maze dimensions
-    this.mazeColCount = makeOdd(Math.round(windowWidth / this.cellSize));
-    this.mazeRowCount = makeOdd(Math.round(maxGridHeight / this.cellSize));
-    this.cellSize = Math.min(
-      windowWidth / this.mazeColCount,
-      maxGridHeight / this.mazeRowCount
+    const minorCellCount = makeOdd(
+      Math.min(
+        Math.floor(gridSize.x / this.cellSize),
+        Math.floor(gridSize.y / this.cellSize)
+      )
     );
+
+    if (this.CONFIG.DEVICE_FLAG.portrait) {
+      this.mazeColCount = minorCellCount;
+      this.mazeRowCount = majorCellCount;
+    } else {
+      this.mazeColCount = majorCellCount;
+      this.mazeRowCount = minorCellCount;
+    }
 
     this.topBorderSize = bannerHeight;
 
@@ -564,5 +575,6 @@ export function run() {
   new MazeMemoryGame();
 }
 function makeOdd(arg0: number): number {
+  arg0 = Math.round(arg0);
   return arg0 % 2 === 0 ? arg0 + 1 : arg0;
 }
