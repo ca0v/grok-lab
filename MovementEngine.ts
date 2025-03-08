@@ -152,12 +152,8 @@ export class MovementEngine {
         if (!bullet.lifeDeducted) {
           this.game.score.lives--; // Deduct one life only if not deducted before
           bullet.lifeDeducted = true; // Mark life as deducted
-          console.log(
-            "Bullet hit a wall, lost one life. Lives remaining:",
-            this.game.score.lives
-          );
         }
-        // Bullet continues through the destroyed wall
+        return false;
       }
 
       const hitTarget = this.game.targets.find((target) => {
