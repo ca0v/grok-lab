@@ -21,12 +21,6 @@ body {
   background: var(--grid-bg);
 }
 
-canvas {
-  border: 1px solid black;
-  margin: 10px;
-  box-sizing: border-box;
-  display: block;
-}
 
 #instructions {
   display: none;
@@ -102,12 +96,6 @@ canvas {
     flex-direction: column; /* Stack canvas and controls vertically */
     justify-content: flex-start; /* Canvas at top */
     align-items: center;
-  }
-
-  canvas {
-    margin: 10px 0 0 0; /* Top margin only, no right margin */
-    width: calc(100% - 20px); /* Full width minus horizontal margins */
-    max-width: none; /* Remove any max-width constraints */
   }
 
   #controls {

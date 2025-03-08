@@ -64,10 +64,9 @@ export class MazeMemoryGame {
     this.lastTime = performance.now();
     this.accumulatedTime = 0;
 
-    const isTouchSupported = "ontouchstart" in window;
     const joystickContainer = document.getElementById("joystick-container");
 
-    if (isTouchSupported) {
+    if (this.CONFIG.DEVICE_FLAG.isTouchSupported) {
       joystickContainer!.style.display = "flex";
       this.setupGestureEngine();
       this.canvas.addEventListener(
@@ -280,7 +279,7 @@ export class MazeMemoryGame {
     const windowHeight =
       window.innerHeight -
       this.CONFIG.CANVAS_MARGIN.VERTICAL -
-      this.controlsHeight;
+      (this.CONFIG.DEVICE_FLAG.isTouchSupported ? this.controlsHeight : 0);
 
     const bannerHeight = windowHeight * this.CONFIG.BANNER_HEIGHT_RATIO;
 
@@ -294,17 +293,19 @@ export class MazeMemoryGame {
       )
     );
 
-    const cellSize = {
-      x: Math.floor(gridSize.x / majorCellCount),
-      y: Math.floor(gridSize.y / majorCellCount),
-    };
-
-    this.cellSize = Math.max(cellSize.x, cellSize.y);
+    const cellSize = Math.max(
+      Math.floor(gridSize.x / majorCellCount),
+      Math.floor(gridSize.y / majorCellCount)
+    );
 
     const minorCellCount = makeOdd(
-      Math.min(
-        Math.floor(gridSize.x / this.cellSize),
-        Math.floor(gridSize.y / this.cellSize)
+      clamp(
+        Math.min(
+          Math.floor(gridSize.x / cellSize),
+          Math.floor(gridSize.y / cellSize)
+        ),
+        this.CONFIG.MIN_CELL_COUNT,
+        this.CONFIG.MAX_CELL_COUNT
       )
     );
 
@@ -315,6 +316,13 @@ export class MazeMemoryGame {
       this.mazeColCount = majorCellCount;
       this.mazeRowCount = minorCellCount;
     }
+
+    this.cellSize = Math.min(
+      Math.floor(gridSize.x / minorCellCount),
+      Math.floor(gridSize.y / minorCellCount)
+    );
+
+    console.log(`${cellSize} -> ${this.cellSize}`);
 
     this.topBorderSize = bannerHeight;
 
