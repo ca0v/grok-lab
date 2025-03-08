@@ -103,9 +103,8 @@ export class MazeMemoryGame {
     this.eventHandler = new EventHandler(this);
 
     this.eventHandler.initializeEventHandlers();
-    this.resetLevel(true);
     this.eventHandler.setupInputHandlers();
-    window.addEventListener("resize", () => this.resetLevel());
+    window.addEventListener("resize", () => this.resetLevel(true));
     this.lastTime = performance.now();
     this.accumulatedTime = 0;
 
@@ -123,6 +122,7 @@ export class MazeMemoryGame {
       joystickContainer!.style.display = "none";
     }
 
+    this.resetLevel(true);
     this.gameLoop();
   }
 
@@ -346,9 +346,6 @@ export class MazeMemoryGame {
       maxGridHeight / this.mazeRowCount
     );
 
-    console.log(this.mazeRowCount, this.mazeColCount, this.cellSize);
-
-    bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
     this.topBorderSize = bannerHeight;
 
     this.canvas.width = this.mazeColCount * this.cellSize;
