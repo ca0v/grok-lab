@@ -284,7 +284,7 @@ export class MazeMemoryGame {
       this.controlsHeight;
 
     const majorCellCount = clamp(
-      this.CONFIG.MIN_CELL_COUNT + 2 * this.level,
+      this.CONFIG.MIN_CELL_COUNT + Math.floor(this.level / 3),
       this.CONFIG.MIN_CELL_COUNT,
       this.CONFIG.MAX_CELL_COUNT
     );
