@@ -6,12 +6,16 @@
   "scripts": {
     "tsc": "tsc",
     "dev": "tsc -w",
+    "build": "tsc",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
     "grok": "node ./scripts/generatePaste.js | xclip -selection clipboard"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "typescript": "^5.8.2"
   }
 }
