@@ -152,19 +152,10 @@ export class EventHandler {
         if (!this.game.marker) {
           // If there is no marker, create one at the tank's position
           this.game.marker = tank.pos.copy();
-          console.log(
-            "Marker placed at:",
-            this.game.marker.x,
-            this.game.marker.y
-          );
         } else {
           // If there is a marker, move the tank to it and remove the marker
           tank.targetPos = this.game.marker.copy();
-          console.log(
-            "Moving tank to marker at:",
-            this.game.marker.x,
-            this.game.marker.y
-          );
+          this.game.score.lives--;
           this.game.marker = null; // Remove the marker
         }
         break;
@@ -175,6 +166,5 @@ export class EventHandler {
         }
         break;
     }
-
   }
 }

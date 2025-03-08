@@ -142,27 +142,31 @@ export class MazeMemoryGame {
     const touch = e.touches[0];
     const canvasRect = this.canvas.getBoundingClientRect();
     const tapX = touch.clientX - canvasRect.left;
-    const tapY = touch.clientY - canvasRect.top;
+    const tapY = touch.clientY - canvasRect.top - this.topBorderSize; // Adjust for banner
 
-    if (this.chaosMonster) {
-      const monsterPos = this.chaosMonster.pos;
-      const monsterPixelX = monsterPos.x * this.cellSize + this.cellSize / 2;
-      const monsterPixelY =
-        monsterPos.y * this.cellSize + this.cellSize / 2 + this.topBorderSize;
-      const monsterRadius = (this.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
-      const distance = Math.sqrt(
-        (tapX - monsterPixelX) ** 2 + (tapY - monsterPixelY) ** 2
-      );
+    // Convert tap coordinates to grid coordinates
+    const gridX = Math.floor(tapX / this.cellSize);
+    const gridY = Math.floor(tapY / this.cellSize);
 
-      if (distance <= monsterRadius) {
-        console.log(
-          "Chaos monster tapped! Moving tank to monster position:",
-          monsterPos
-        );
-        this.tank.targetPos = monsterPos.copy();
-        this.tank.ignoreCollisions = true;
-        this.score.moves++;
+    // Check if the tap is within the maze bounds
+    if (
+      gridX >= 0 &&
+      gridX < this.mazeColCount &&
+      gridY >= 0 &&
+      gridY < this.mazeRowCount
+    ) {
+      const tappedPos = new Vector2D(gridX, gridY);
+
+      if (this.marker && this.marker.equals(tappedPos)) {
+        this.tank.targetPos = this.marker.copy();
+        this.score.lives--;
+        this.marker = null;
+      } else {
+        // No marker or tapped a new cell: place or move marker
+        this.marker = tappedPos.copy();
       }
+    } else {
+      console.log("Tap outside maze bounds:", gridX, gridY);
     }
   }
 

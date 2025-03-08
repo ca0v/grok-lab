@@ -135,10 +135,13 @@ export class RenderEngine {
               ? Math.max(0, target.flashTimer / this.CONFIG.FLASH_DURATION)
               : 1;
           this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-          this.ctx.font = `${this.CONFIG.TARGET_FONT_SIZE}px Arial`;
+          const text = target.num.toString();
+          this.ctx.font = `${
+            this.CONFIG.TARGET_FONT_SIZE / Math.sqrt(text.length)
+          }px Arial`;
           this.ctx.textAlign = "center";
           this.ctx.textBaseline = "middle";
-          this.ctx.fillText(target.num.toString(), x, y);
+          this.ctx.fillText(text, x, y);
         }
       }
     });
@@ -212,13 +215,6 @@ export class RenderEngine {
       this.ctx.strokeStyle = "white";
       this.ctx.lineWidth = this.CONFIG.TARGET_OUTLINE_WIDTH;
       this.ctx.beginPath();
-      this.ctx.arc(
-        x,
-        y,
-        (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE,
-        0,
-        Math.PI * 2
-      );
       this.ctx.stroke();
 
       this.ctx.font = `${this.CONFIG.MARKER_FONT_SIZE}px Arial`;
