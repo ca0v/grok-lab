@@ -149,10 +149,24 @@ export class EventHandler {
         break;
 
       case "marker":
-        this.game.marker =
-          this.game.marker && this.game.marker.equals(tank.pos)
-            ? null
-            : tank.pos.copy();
+        if (!this.game.marker) {
+          // If there is no marker, create one at the tank's position
+          this.game.marker = tank.pos.copy();
+          console.log(
+            "Marker placed at:",
+            this.game.marker.x,
+            this.game.marker.y
+          );
+        } else {
+          // If there is a marker, move the tank to it and remove the marker
+          tank.targetPos = this.game.marker.copy();
+          console.log(
+            "Moving tank to marker at:",
+            this.game.marker.x,
+            this.game.marker.y
+          );
+          this.game.marker = null; // Remove the marker
+        }
         break;
 
       case "peek":
@@ -162,16 +176,5 @@ export class EventHandler {
         break;
     }
 
-    // Handle marker movement separately
-    if (
-      this.game.marker &&
-      input.action !== "marker" &&
-      input.action !== "peek"
-    ) {
-      tank.targetPos = this.game.marker.copy();
-      tank.ignoreCollisions = true;
-      this.game.score.moves++;
-      this.game.marker = null;
-    }
   }
 }
