@@ -251,7 +251,7 @@ export class RenderEngine {
     const circleRadius = fontSize / 3; // Circle size based on font size
 
     const livesCount = this.game.score.lives;
-    this.ctx.fillStyle = this.CONFIG.TANK_COLOR; // e.g., "blue"
+    this.ctx.fillStyle = this.CONFIG.LIFE_COLOR; // e.g., "blue"
     for (let i = 0; i < livesCount; i++) {
       const x = this.col(0.5 * (1 + i)); // Col 0 to 2
       const y = this.row(0.5); // Row 0

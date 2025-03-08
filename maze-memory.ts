@@ -284,9 +284,9 @@ export class MazeMemoryGame {
       this.controlsHeight;
 
     const majorCellCount = clamp(
-      1 + 2 * this.level,
+      this.CONFIG.MIN_CELL_COUNT + 2 * this.level,
       this.CONFIG.MIN_CELL_COUNT,
-      this.CONFIG.MAX_CELL_COUNT - (this.CONFIG.DEVICE_FLAG.small ? 4 : 0)
+      this.CONFIG.MAX_CELL_COUNT
     );
 
     let bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;
@@ -296,7 +296,7 @@ export class MazeMemoryGame {
     const cellSizeHeight = Math.floor(maxGridHeight / majorCellCount);
 
     // Use clamp for cellSize
-    this.cellSize = Math.max(cellSizeWidth, cellSizeHeight);
+    this.cellSize = Math.min(cellSizeWidth, cellSizeHeight);
 
     // Use clamp for maze dimensions
     this.mazeColCount = makeOdd(Math.round(windowWidth / this.cellSize));
