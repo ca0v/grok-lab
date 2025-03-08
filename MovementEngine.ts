@@ -66,21 +66,11 @@ export class MovementEngine {
         const moveDistance = Math.min(distance, speed * deltaTime);
         const moveStep = delta.scale(1 / distance).scale(moveDistance);
         chaosMonster.pos = chaosMonster.pos.add(moveStep);
-        console.log(
-          `Monster moving to origin: (${chaosMonster.pos.x}, ${chaosMonster.pos.y})`
-        );
       } else {
         chaosMonster.holdingTarget.pos = chaosMonster.origin.copy();
         chaosMonster.pos = chaosMonster.origin.copy();
-        console.log(
-          `Monster at origin, placed target at: (${chaosMonster.holdingTarget.pos.x}, ${chaosMonster.holdingTarget.pos.y})`
-        );
 
         if (chaosMonster.holdingTarget.hit) {
-          console.log(
-            "updateChaosMonster",
-            "Holding target hit, releasing target"
-          );
           chaosMonster.holdingTarget = null;
         }
       }
