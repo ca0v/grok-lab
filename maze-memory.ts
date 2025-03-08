@@ -5,51 +5,7 @@ import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
 import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
 import { clamp, range } from "./fun.js";
-
-interface Tank {
-  pos: Vector2D;
-  targetPos: Vector2D;
-  dir: string;
-  currentAngle: number;
-  targetAngle: number;
-  rotationStart: number | null;
-  ignoreCollisions: boolean;
-}
-
-interface ChaosMonster {
-  pos: Vector2D;
-  origin: Vector2D;
-  speed: number;
-  holdingTarget: any;
-  target: any;
-}
-
-interface Target {
-  pos: Vector2D;
-  num: number;
-  hit: boolean;
-  flashTimer: number;
-  color: string;
-}
-
-interface Bullet {
-  pos: Vector2D;
-  dir: string;
-  lifeDeducted: boolean; // New property to track life deduction
-}
-
-interface PowerUp {
-  pos: Vector2D;
-  opacity: number;
-  revealStart: number | null;
-}
-
-interface Score {
-  hits: number;
-  lives: number;
-  total: number;
-  moves: number;
-}
+import { Tank, ChaosMonster, Target, Bullet, PowerUp, Score } from "./Types.js";
 
 export class MazeMemoryGame {
   CONFIG = CONFIG;
@@ -330,7 +286,7 @@ export class MazeMemoryGame {
     const majorCellCount = clamp(
       1 + 2 * this.level,
       this.CONFIG.MIN_CELL_COUNT,
-      this.CONFIG.MAX_CELL_COUNT
+      this.CONFIG.MAX_CELL_COUNT - (this.CONFIG.DEVICE_FLAG.small ? 4 : 0)
     );
 
     let bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;

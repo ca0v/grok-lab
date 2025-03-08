@@ -18,7 +18,7 @@ export const CONFIG = {
   BULLET_SPEED: 12,
   TANK_SPEED: 6,
   CHAOS_MONSTER_SPEED: 4,
-  MIN_CELL_COUNT: 7, // Renamed from MIN_GRID_SIZE
+  MIN_CELL_COUNT: 5, // Renamed from MIN_GRID_SIZE
   MAX_CELL_COUNT: 15, // Renamed from MAX_GRID_WIDTH
   LEVELS_PER_CYCLE: 3,
   POWER_UP_REVEAL_DURATION: 3000,
@@ -40,7 +40,7 @@ export const CONFIG = {
   MARKER_FONT_SIZE: 30,
   TANK_FONT_SIZE: 20,
   TARGET_FONT_SIZE: 30,
-  DEVICE_FLAG: {small: window.innerWidth <= 768}
+  DEVICE_FLAG: { small: window.innerWidth <= 768 },
 } as const;
 
 export const INPUT_MAP = {
