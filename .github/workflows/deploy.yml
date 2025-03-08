@@ -24,14 +24,19 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build
         run: npm run build
+
+      - name: Copy static files
+        run: |
+          cp maze-memory.html dist/ || { echo "maze-memory.html not found"; exit 1; }
+          cp maze-memory.css dist/ || { echo "maze-memory.css not found"; exit 1; }
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
