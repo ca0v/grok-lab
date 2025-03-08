@@ -155,7 +155,6 @@ export class EventHandler {
         } else {
           // If there is a marker, move the tank to it and remove the marker
           tank.targetPos = this.game.marker.copy();
-          this.game.score.lives--;
           this.game.marker = null; // Remove the marker
         }
         break;

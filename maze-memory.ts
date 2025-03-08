@@ -115,11 +115,10 @@ export class MazeMemoryGame {
 
       if (this.marker && this.marker.equals(tappedPos)) {
         this.tank.targetPos = this.marker.copy();
-        this.score.lives--;
         this.marker = null;
       } else {
         // No marker or tapped a new cell: place or move marker
-        this.marker = tappedPos.copy();
+        this.marker = this.tank.pos.copy();
       }
     } else {
       console.log("Tap outside maze bounds:", gridX, gridY);
