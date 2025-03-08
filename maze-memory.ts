@@ -324,7 +324,7 @@ export class MazeMemoryGame {
       this.controlsHeight;
 
     const majorCellCount = clamp(
-      this.level,
+      1 + 2 * this.level,
       this.CONFIG.MIN_CELL_COUNT,
       this.CONFIG.MAX_CELL_COUNT
     );
@@ -339,16 +339,11 @@ export class MazeMemoryGame {
     this.cellSize = Math.max(cellSizeWidth, cellSizeHeight);
 
     // Use clamp for maze dimensions
-    this.mazeColCount = clamp(
-      Math.floor(windowWidth / this.cellSize),
-      this.CONFIG.MIN_CELL_COUNT,
-      this.CONFIG.MAX_CELL_COUNT
-    );
-
-    this.mazeRowCount = clamp(
-      Math.floor(maxGridHeight / this.cellSize),
-      this.CONFIG.MIN_CELL_COUNT,
-      this.CONFIG.MAX_CELL_COUNT
+    this.mazeColCount = makeOdd(Math.round(windowWidth / this.cellSize));
+    this.mazeRowCount = makeOdd(Math.round(maxGridHeight / this.cellSize));
+    this.cellSize = Math.min(
+      windowWidth / this.mazeColCount,
+      maxGridHeight / this.mazeRowCount
     );
 
     console.log(this.mazeRowCount, this.mazeColCount, this.cellSize);
@@ -611,4 +606,7 @@ export class MazeMemoryGame {
 
 export function run() {
   new MazeMemoryGame();
+}
+function makeOdd(arg0: number): number {
+  return arg0 % 2 === 0 ? arg0 + 1 : arg0;
 }
