@@ -29,15 +29,15 @@ export class RenderEngine {
     const bgColor = getComputedStyle(document.documentElement)
       .getPropertyValue("--grid-bg")
       .trim();
-    for (let y = 0; y < this.game.mazeHeight; y++) {
-      for (let x = 0; x < this.game.mazeWidth; x++) {
+    for (let y = 0; y < this.game.mazeRowCount; y++) {
+      for (let x = 0; x < this.game.mazeColCount; x++) {
         this.ctx.fillStyle =
           this.game.maze[y][x] === 1 ? this.CONFIG.MAZE_WALL_COLOR : bgColor;
         this.ctx.fillRect(
-          x * this.game.gridSize,
-          y * this.game.gridSize + this.game.topBorderSize,
-          this.game.gridSize,
-          this.game.gridSize
+          x * this.game.cellSize,
+          y * this.game.cellSize + this.game.topBorderSize,
+          this.game.cellSize,
+          this.game.cellSize
         );
       }
     }
@@ -46,17 +46,17 @@ export class RenderEngine {
   drawTank() {
     this.ctx.save();
     this.ctx.translate(
-      this.game.tank.pos.x * this.game.gridSize + this.game.gridSize / 2,
-      this.game.tank.pos.y * this.game.gridSize +
-        this.game.gridSize / 2 +
+      this.game.tank.pos.x * this.game.cellSize + this.game.cellSize / 2,
+      this.game.tank.pos.y * this.game.cellSize +
+        this.game.cellSize / 2 +
         this.game.topBorderSize
     );
     this.ctx.rotate(this.game.tank.currentAngle + Math.PI / 2); // Add 90 degrees clockwise
-  
-    const tankSize = this.game.gridSize * this.CONFIG.TANK_RADIUS_SCALE; // e.g., 0.5 * gridSize
+
+    const tankSize = this.game.cellSize * this.CONFIG.TANK_RADIUS_SCALE; // e.g., 0.5 * gridSize
     const cellSize = (tankSize * 2) / 16; // 16x16 grid, fit within tankSize * 2
     const center = (16 / 2) * cellSize; // Center of 16x16 grid
-  
+
     // Adjusted 16x16 pixel map
     const pixelMap = [
       "0000000110000000",
@@ -76,13 +76,14 @@ export class RenderEngine {
       "0000000000000000",
       "0000000000000000",
     ];
-  
+
     for (let y = 0; y < 16; y++) {
       const row = pixelMap[y];
       for (let x = 0; x < 16; x++) {
         if (row[x] !== "0") {
           // Override fillStyle with BULLET_COLOR for "B" cells
-          this.ctx.fillStyle = row[x] === "B" ? this.CONFIG.BULLET_COLOR : this.CONFIG.TANK_COLOR;
+          this.ctx.fillStyle =
+            row[x] === "B" ? this.CONFIG.BULLET_COLOR : this.CONFIG.TANK_COLOR;
           this.ctx.fillRect(
             x * cellSize - center,
             y * cellSize - center,
@@ -92,19 +93,19 @@ export class RenderEngine {
         }
       }
     }
-  
+
     this.ctx.restore();
   }
-  
+
   drawTargets() {
     this.game.targets.forEach((target) => {
       if (!target.hit || target.flashTimer > 0) {
         const targetRadius =
-          (this.game.gridSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
-        const x = target.pos.x * this.game.gridSize + this.game.gridSize / 2;
+          (this.game.cellSize / 2) * this.CONFIG.TARGET_RADIUS_SCALE;
+        const x = target.pos.x * this.game.cellSize + this.game.cellSize / 2;
         const y =
-          target.pos.y * this.game.gridSize +
-          this.game.gridSize / 2 +
+          target.pos.y * this.game.cellSize +
+          this.game.cellSize / 2 +
           this.game.topBorderSize;
 
         this.ctx.fillStyle = this.CONFIG.TARGET_OUTLINE_COLOR;
@@ -147,14 +148,14 @@ export class RenderEngine {
     if (this.game.chaosMonster) {
       this.ctx.save();
       this.ctx.translate(
-        this.game.chaosMonster.pos.x * this.game.gridSize +
-          this.game.gridSize / 2,
-        this.game.chaosMonster.pos.y * this.game.gridSize +
-          this.game.gridSize / 2 +
+        this.game.chaosMonster.pos.x * this.game.cellSize +
+          this.game.cellSize / 2,
+        this.game.chaosMonster.pos.y * this.game.cellSize +
+          this.game.cellSize / 2 +
           this.game.topBorderSize
       );
 
-      const radius = (this.game.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+      const radius = (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
       this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
       this.ctx.beginPath();
       this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
@@ -166,13 +167,13 @@ export class RenderEngine {
   drawPowerUp() {
     this.game.powerUps.forEach((p) => {
       const radius =
-        (this.game.gridSize / 2) * this.CONFIG.POWER_UP_RADIUS_SCALE;
+        (this.game.cellSize / 2) * this.CONFIG.POWER_UP_RADIUS_SCALE;
       this.ctx.fillStyle = `rgba(255, 255, 0, ${p.opacity})`;
       this.ctx.beginPath();
       this.ctx.arc(
-        p.pos.x * this.game.gridSize + this.game.gridSize / 2,
-        p.pos.y * this.game.gridSize +
-          this.game.gridSize / 2 +
+        p.pos.x * this.game.cellSize + this.game.cellSize / 2,
+        p.pos.y * this.game.cellSize +
+          this.game.cellSize / 2 +
           this.game.topBorderSize,
         radius,
         0,
@@ -187,9 +188,9 @@ export class RenderEngine {
       this.ctx.fillStyle = this.CONFIG.BULLET_COLOR;
       this.ctx.beginPath();
       this.ctx.arc(
-        bullet.pos.x * this.game.gridSize + this.game.gridSize / 2,
-        bullet.pos.y * this.game.gridSize +
-          this.game.gridSize / 2 +
+        bullet.pos.x * this.game.cellSize + this.game.cellSize / 2,
+        bullet.pos.y * this.game.cellSize +
+          this.game.cellSize / 2 +
           this.game.topBorderSize,
         this.CONFIG.BULLET_SIZE,
         0,
@@ -202,10 +203,10 @@ export class RenderEngine {
   drawMarker() {
     if (this.game.marker) {
       const x =
-        this.game.marker.x * this.game.gridSize + this.game.gridSize / 2;
+        this.game.marker.x * this.game.cellSize + this.game.cellSize / 2;
       const y =
-        this.game.marker.y * this.game.gridSize +
-        this.game.gridSize / 2 +
+        this.game.marker.y * this.game.cellSize +
+        this.game.cellSize / 2 +
         this.game.topBorderSize;
 
       this.ctx.strokeStyle = "white";
@@ -214,7 +215,7 @@ export class RenderEngine {
       this.ctx.arc(
         x,
         y,
-        (this.game.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE,
+        (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE,
         0,
         Math.PI * 2
       );

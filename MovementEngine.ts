@@ -1,3 +1,4 @@
+import { lerpAngle } from "./fun.js";
 import type { MazeMemoryGame } from "./maze-memory.js";
 import { Vector2D } from "./Vector2D.js";
 
@@ -119,9 +120,9 @@ export class MovementEngine {
     const gridPos = pos.round();
     if (
       gridPos.x < 0 ||
-      gridPos.x >= this.game.mazeWidth ||
+      gridPos.x >= this.game.mazeColCount ||
       gridPos.y < 0 ||
-      gridPos.y >= this.game.mazeHeight
+      gridPos.y >= this.game.mazeRowCount
     ) {
       return -1; // Out of bounds indicator
     }
@@ -132,9 +133,9 @@ export class MovementEngine {
     const gridPos = pos.round();
     if (
       gridPos.x >= 0 &&
-      gridPos.x < this.game.mazeWidth &&
+      gridPos.x < this.game.mazeColCount &&
       gridPos.y >= 0 &&
-      gridPos.y < this.game.mazeHeight
+      gridPos.y < this.game.mazeRowCount
     ) {
       this.game.maze[gridPos.y][gridPos.x] = value;
     }
@@ -263,11 +264,6 @@ export class MovementEngine {
     return opposites[dir] || dir;
   }
 
-  lerpAngle(from: number, to: number, progress: number): number {
-    const difference = ((to - from + Math.PI) % (2 * Math.PI)) - Math.PI;
-    return from + difference * progress;
-  }
-
   updateTankDirection(dir: string) {
     const tank = this.game.tank;
     tank.dir = dir;
@@ -289,7 +285,7 @@ export class MovementEngine {
       const elapsed = performance.now() - tank.rotationStart!;
       const duration = this.game.CONFIG.ROTATION_DURATION;
       const progress = Math.min(elapsed / duration, 1);
-      tank.currentAngle = this.lerpAngle(currentAngle, targetAngle, progress);
+      tank.currentAngle = lerpAngle(currentAngle, targetAngle, progress);
       if (progress === 1) {
         tank.rotationStart = null;
         tank.currentAngle = targetAngle;

@@ -4,10 +4,7 @@ import { MovementEngine } from "./MovementEngine.js";
 import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
 import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
-
-function range(n: number): number[] {
-  return Array.from({ length: n }, (_, i) => i);
-}
+import { clamp, range } from "./fun.js";
 
 interface Tank {
   pos: Vector2D;
@@ -63,9 +60,9 @@ export class MazeMemoryGame {
   ctx: CanvasRenderingContext2D;
   controlsHeight: number;
   topBorderSize: number;
-  gridSize: number;
-  mazeWidth: number;
-  mazeHeight: number;
+  cellSize: number;
+  mazeColCount: number;
+  mazeRowCount: number;
   movementEngine: MovementEngine;
   renderEngine: RenderEngine;
   eventHandler: EventHandler;
@@ -93,7 +90,6 @@ export class MazeMemoryGame {
   maxTargets: number;
   lastTime: number;
   accumulatedTime: number;
-  bannerHeight: number;
 
   constructor() {
     this.initializeCanvas();
@@ -150,10 +146,10 @@ export class MazeMemoryGame {
 
     if (this.chaosMonster) {
       const monsterPos = this.chaosMonster.pos;
-      const monsterPixelX = monsterPos.x * this.gridSize + this.gridSize / 2;
+      const monsterPixelX = monsterPos.x * this.cellSize + this.cellSize / 2;
       const monsterPixelY =
-        monsterPos.y * this.gridSize + this.gridSize / 2 + this.topBorderSize;
-      const monsterRadius = (this.gridSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+        monsterPos.y * this.cellSize + this.cellSize / 2 + this.topBorderSize;
+      const monsterRadius = (this.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
       const distance = Math.sqrt(
         (tapX - monsterPixelX) ** 2 + (tapY - monsterPixelY) ** 2
       );
@@ -172,11 +168,11 @@ export class MazeMemoryGame {
 
   initializeGameConstants() {
     const isLandscape = window.innerWidth > window.innerHeight;
-    this.mazeWidth = isLandscape
-      ? this.CONFIG.MAX_COLUMN_COUNT
+    this.mazeColCount = isLandscape
+      ? this.CONFIG.MAX_CELL_COUNT
       : this.CONFIG.MIN_CELL_COUNT;
-    this.mazeHeight = isLandscape
-      ? Math.floor(this.CONFIG.MAX_ROW_COUNT / 2)
+    this.mazeRowCount = isLandscape
+      ? Math.floor(this.CONFIG.MAX_CELL_COUNT / 2)
       : this.CONFIG.MIN_CELL_COUNT;
     this.level = this.level || 1;
     this.maxTargets = this.CONFIG.TARGETS_BASE;
@@ -233,18 +229,16 @@ export class MazeMemoryGame {
       (this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE
     );
 
-    this.mazeWidth = Math.max(
+    this.mazeColCount = clamp(
+      this.CONFIG.MIN_CELL_COUNT +
+        (difficulty + levelCycle) * this.CONFIG.LEVEL_SIZE_INCREMENT,
       this.CONFIG.MIN_CELL_COUNT,
-      Math.min(
-        this.CONFIG.MAX_COLUMN_COUNT,
-        this.CONFIG.MIN_CELL_COUNT +
-          (difficulty + levelCycle) * this.CONFIG.LEVEL_SIZE_INCREMENT
-      )
+      this.CONFIG.MAX_CELL_COUNT
     );
 
     this.updateCanvasSize();
 
-    this.maze = this.generateMaze(this.mazeWidth, this.mazeHeight);
+    this.maze = this.generateMaze(this.mazeColCount, this.mazeRowCount);
     const startPos = this.getRandomOpenPosition();
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
@@ -343,47 +337,36 @@ export class MazeMemoryGame {
       this.CONFIG.CANVAS_MARGIN.VERTICAL -
       this.controlsHeight;
 
-    this.bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;
-    const maxGridHeight = windowHeight - this.bannerHeight;
+    let bannerHeight = windowWidth * this.CONFIG.BANNER_HEIGHT_RATIO;
+    const maxGridHeight = windowHeight - bannerHeight;
 
-    const cellSizeWidth = Math.floor(windowWidth / this.mazeWidth);
-    const cellSizeHeight = Math.floor(maxGridHeight / this.mazeHeight);
-    this.gridSize = Math.max(
+    const cellSizeWidth = Math.floor(windowWidth / this.mazeColCount);
+    const cellSizeHeight = Math.floor(maxGridHeight / this.mazeRowCount);
+
+    // Use clamp for cellSize
+    this.cellSize = clamp(
+      Math.min(cellSizeWidth, cellSizeHeight),
       this.CONFIG.CELL_SIZE_DEFAULT,
-      Math.min(cellSizeWidth, cellSizeHeight)
+      Infinity // No upper bound, or set a max if needed
     );
 
-    this.mazeWidth = Math.min(
-      this.CONFIG.MAX_COLUMN_COUNT,
-      Math.floor(windowWidth / this.gridSize)
-    );
-    this.mazeHeight = Math.min(
-      this.CONFIG.MAX_ROW_COUNT,
-      Math.floor(maxGridHeight / this.gridSize)
+    // Use clamp for maze dimensions
+    this.mazeColCount = clamp(
+      Math.floor(windowWidth / this.cellSize),
+      this.CONFIG.MIN_CELL_COUNT,
+      this.CONFIG.MAX_CELL_COUNT
     );
 
-    this.mazeWidth = Math.max(this.CONFIG.MIN_CELL_COUNT, this.mazeWidth);
-    this.mazeHeight = Math.max(this.CONFIG.MIN_CELL_COUNT, this.mazeHeight);
-
-    this.canvas.width = this.mazeWidth * this.gridSize;
-    this.bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
-    this.topBorderSize = this.bannerHeight;
-    this.canvas.height = this.mazeHeight * this.gridSize + this.bannerHeight;
-
-    this.canvas.dataset.bannerHeight = this.bannerHeight.toString();
-
-    console.log(
-      "Canvas resized: width=",
-      this.canvas.width,
-      "height=",
-      this.canvas.height,
-      "gridSize=",
-      this.gridSize,
-      "mazeWidth=",
-      this.mazeWidth,
-      "mazeHeight=",
-      this.mazeHeight
+    this.mazeRowCount = clamp(
+      Math.floor(maxGridHeight / this.cellSize),
+      this.CONFIG.MIN_CELL_COUNT,
+      this.CONFIG.MAX_CELL_COUNT
     );
+
+    this.canvas.width = this.mazeColCount * this.cellSize;
+    bannerHeight = this.canvas.width * this.CONFIG.BANNER_HEIGHT_RATIO;
+    this.topBorderSize = bannerHeight;
+    this.canvas.height = this.mazeRowCount * this.cellSize + bannerHeight;
   }
 
   generateMaze(width: number, height: number): number[][] {
@@ -435,8 +418,8 @@ export class MazeMemoryGame {
 
     do {
       pos = new Vector2D(
-        Math.floor(Math.random() * this.mazeWidth),
-        Math.floor(Math.random() * this.mazeHeight)
+        Math.floor(Math.random() * this.mazeColCount),
+        Math.floor(Math.random() * this.mazeRowCount)
       );
       attempts++;
     } while (this.maze[pos.y][pos.x] !== 0 && attempts < maxAttempts);
@@ -493,9 +476,9 @@ export class MazeMemoryGame {
     const { x, y } = pos.round();
     return (
       x >= 0 &&
-      x < this.mazeWidth &&
+      x < this.mazeColCount &&
       y >= 0 &&
-      y < this.mazeHeight &&
+      y < this.mazeRowCount &&
       this.maze[y][x] === 0
     );
   }
