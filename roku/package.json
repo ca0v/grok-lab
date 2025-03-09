@@ -14,8 +14,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@rokucommunity/bslint": "^0.8.28",
     "@rokucommunity/brs": "^0.47.3",
+    "@rokucommunity/bslint": "^0.8.28",
+    "dotenv": "^16.4.7",
     "roku-deploy": "^3.12.4",
     "sharp": "^0.33.2"
   }

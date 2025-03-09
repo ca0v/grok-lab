@@ -1,9 +1,13 @@
 const rokuDeploy = require("roku-deploy");
-const net = require("net"); // For Telnet
+const net = require("net");
 
+// Load environment variables from .env file if it exists (optional)
+require('dotenv').config();
+
+// Define deploy options with environment variable fallbacks
 const deployOptions = {
-  host: "192.168.1.98",
-  password: "trkn",
+  host: process.env.ROKU_HOST || "192.168.1.98",
+  password: process.env.ROKU_PASSWORD || "trkn",
   rootDir: "./app",
   outDir: "./dist",
   outFile: "maze-memory.zip",
@@ -16,7 +20,7 @@ async function fetchRokuLogs(host) {
     const client = new net.Socket();
     let logs = "";
     client.connect(8085, host, () => {
-      console.log("Connected to Roku Telnet (port 8085) for logs...");
+      console.log(`Connected to Roku Telnet (port 8085) at ${host} for logs...`);
     });
     client.on("data", (data) => {
       logs += data.toString();
@@ -34,7 +38,7 @@ async function fetchRokuLogs(host) {
 
 async function deploy() {
   try {
-    console.log("Zipping and deploying to Roku at 192.168.1.98...");
+    console.log(`Zipping and deploying to Roku at ${deployOptions.host}...`);
     const result = await rokuDeploy.deploy(deployOptions);
     console.log("Deployment successful! Maze Memory should launch on your Roku.");
     console.log("Deployment details:", result);
