@@ -4,14 +4,15 @@
     <children>
         <Rectangle id="background" color="#333333" />
         <Group id="mazeGroup" />
-        <Group id="tank" /> <!-- Changed from Rectangle to Group -->
+        <Group id="tank" />
         <Rectangle id="chaosMonster" color="#00FF0080" visible="false" />
         <Group id="bulletsGroup" />
         <Group id="targetsGroup" />
         <Group id="powerUpsGroup" />
-        <Label id="marker" font="font:MediumSystemFont" text="X" color="#FFFFFF" visible="false" />
+        <Label id="markerX" font="font:MediumSystemFont" text="X" color="#FFFFFF" visible="false" />
+        <Label id="markerY" font="font:MediumSystemFont" text="Y" color="#FFFFFF" visible="false" />
         <Label id="scoreboard" font="font:SmallSystemFont" color="#FFFFFF" />
-        <Label id="instructions" font="font:SmallSystemFont" color="#FF0000" text="Arrows: Move far, Rewind/Play/Fast-Forward: Move/Rotate, OK: Shoot, *: Marker, Options: Peek" />
+        <Label id="instructions" font="font:SmallSystemFont" color="#FF0000" text="Arrows: Move far, Rewind/Play/Fast-Forward: Move/Rotate, OK: Shoot, Replay: Marker X, Options: Marker Y" />
         <Label id="message" font="font:MediumSystemFont" color="#FFFFFF" horizAlign="center" vertAlign="center" visible="false" />
     </children>
 </component>

@@ -63,9 +63,15 @@ sub Init()
     print "TargetsGroup: "; m.targetsGroup <> invalid
     m.powerUpsGroup = m.top.FindNode("powerUpsGroup")
     print "PowerUpsGroup: "; m.powerUpsGroup <> invalid
-    m.markerNode = m.top.FindNode("marker")
-    print "Marker: "; m.markerNode <> invalid
-    m.markerNode.text = "X" ' Reinforce initial text
+
+    m.markerXNode = m.top.FindNode("markerX")
+    print "Marker X: "; m.markerXNode <> invalid
+    m.markerXNode.text = "X"
+    m.markerYNode = m.top.FindNode("markerY")
+    print "Marker Y: "; m.markerYNode <> invalid
+    m.markerYNode.text = "Y"
+    m.markers = { "X": invalid, "Y": invalid } ' Track multiple markers
+
     m.scoreboard = m.top.FindNode("scoreboard")
     print "Scoreboard: "; m.scoreboard <> invalid
     m.instructions = m.top.FindNode("instructions")
@@ -153,8 +159,9 @@ sub InitLevel()
     ClearChildren(m.powerUpsGroup)
     m.powerUps = []
     m.currentTarget = 1
-    m.marker = invalid
-    m.markerNode.visible = false
+    m.markers = { "X": invalid, "Y": invalid } ' Reset both markers
+    m.markerXNode.visible = false
+    m.markerYNode.visible = false
     m.numberTimer = 5000
 
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
@@ -187,7 +194,6 @@ sub InitLevel()
         end while
         targetGroup = CreateObject("roSGNode", "Group")
         BuildSprite(targetGroup, targetPixelMap, m.cellSize * 0.8)
-        ' Center the group at the cell's midpoint, adjust for last tweak
         targetGroup.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.4 + 2, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.4 + 2]
         label = CreateObject("roSGNode", "Label")
         label.font = "font:SmallSystemFont"
@@ -396,8 +402,8 @@ function OnKeyEvent(key as string, press as boolean) as boolean
         "fastforward": { action: "rotateCW" }, ' Changed from moveOne right
         "OK": { action: "shoot" },
         "back": { action: "reset" },
-        "replay": { action: "marker" },
-        "options": { action: "marker" }
+        "replay": { action: "marker", marker: "X" },
+        "options": { action: "marker", marker: "Y" }
     }
     input = inputMap[key]
     if input <> invalid
@@ -458,21 +464,10 @@ sub HandleInput(input as object)
         m.bullets.Push({ pos: { x: tank.pos.x, y: tank.pos.y }, dir: tank.dir, node: bullet, lifeDeducted: false })
         print "Bullet spawned at: "; bullet.translation[0]; ","; bullet.translation[1]
     else if input.action = "marker"
-        mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
-        mazeOffsetY = m.screenHeight / 8
-        if m.marker = invalid
-            m.marker = { x: tank.pos.x, y: tank.pos.y }
-            m.markerNode.translation = [m.marker.x * m.cellSize + mazeOffsetX + m.cellSize * 0.2, m.marker.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
-            m.markerNode.text = "X" ' Ensure text is set
-            m.markerNode.visible = true
-            print "Marker placed at: "; m.markerNode.translation[0]; ","; m.markerNode.translation[1]
-        else
-            tank.targetPos = m.marker
-            tank.pos = m.marker
-            m.marker = invalid
-            m.markerNode.visible = false
-            UpdateTankPosition()
-            print "Tank moved to marker"
+        if input.marker = "X"
+            ToggleMarker("X", tank.pos, m.markerXNode)
+        else if input.marker = "Y"
+            ToggleMarker("Y", tank.pos, m.markerYNode)
         end if
     else if input.action = "peek"
         if m.showNextTimer <= 0 and m.numberTimer <= 0
@@ -832,3 +827,21 @@ function Max(a as integer, b as integer) as integer
         return b
     end if
 end function
+
+sub ToggleMarker(markerName as string, tankPos as object, markerNode as object)
+    mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+    mazeOffsetY = m.screenHeight / 8
+    if m.markers[markerName] = invalid
+        m.markers[markerName] = { x: tankPos.x, y: tankPos.y }
+        markerNode.translation = [m.markers[markerName].x * m.cellSize + mazeOffsetX + m.cellSize * 0.2, m.markers[markerName].y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
+        markerNode.visible = true
+        print "Marker "; markerName; " placed at: "; markerNode.translation[0]; ","; markerNode.translation[1]
+    else
+        m.tank.targetPos = m.markers[markerName]
+        m.tank.pos = m.markers[markerName]
+        m.markers[markerName] = invalid
+        markerNode.visible = false
+        UpdateTankPosition()
+        print "Tank moved to marker "; markerName
+    end if
+end sub
