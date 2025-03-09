@@ -27,6 +27,8 @@ sub Init()
     m.level = 1
     m.showNextTimer = 0
     m.numberTimer = 5000
+    m.gameOverTimer = invalid
+    m.levelClearedTimer = invalid
 
     m.background = m.top.FindNode("background")
     print "Background: "; m.background <> invalid
@@ -114,7 +116,7 @@ sub RenderMaze()
                 wall = CreateObject("roSGNode", "Rectangle")
                 wall.width = m.cellSize
                 wall.height = m.cellSize
-                wall.translation = [x * m.cellSize, y * m.cellSize]
+                wall.translation = [x * m.cellSize, y * m.cellSize] ' No mazeOffsetX/Y here
                 wall.color = "#808080"
                 m.mazeGroup.AppendChild(wall)
             end if
@@ -139,6 +141,7 @@ sub InitLevel()
 
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
     mazeOffsetY = m.screenHeight / 8
+    print "Offsets in InitLevel: "; mazeOffsetX; ","; mazeOffsetY
 
     targetCount = 3 + Fix((m.level - 1) / 3)
     for i = 1 to targetCount
@@ -182,12 +185,13 @@ sub InitLevel()
             powerUp = CreateObject("roSGNode", "Rectangle")
             powerUp.width = m.cellSize * 0.25
             powerUp.height = m.cellSize * 0.25
-            powerUp.translation = [position.x * m.cellSize + m.cellSize * 0.375, position.y * m.cellSize + m.cellSize * 0.375]
+            powerUp.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.375, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.375]
             powerUp.color = "#FFFF00"
             m.powerUpsGroup.AppendChild(powerUp)
             m.powerUps.Push({ pos: position, node: powerUp })
         end for
     end if
+    print "Tank initialized at: "; m.tank.pos.x; ","; m.tank.pos.y
 end sub
 
 sub UpdateTankPosition()
@@ -286,7 +290,11 @@ end function
 function IsValidMove(position as object) as boolean
     x = position.x
     y = position.y
-    return x >= 0 and x < m.mazeWidth and y >= 0 and y < m.mazeHeight and m.maze[y][x] = 0
+    valid = x >= 0 and x < m.mazeWidth and y >= 0 and y < m.mazeHeight and m.maze[y][x] = 0
+    if not valid then
+        print "Invalid move to: "; x; ","; y; " Maze size: "; m.mazeWidth; "x"; m.mazeHeight; " Cell: "; m.maze[y][x]
+    end if
+    return valid
 end function
 
 function MoveFar(targetPos as object, dir as string) as object
@@ -386,17 +394,24 @@ sub HandleInput(input as object)
         end if
     else if input.action = "rotate"
         dirOrder = ["up", "right", "down", "left"]
-        currentIdx = dirOrder.IndexOf(tank.dir)
+        currentIdx = FindIndex(dirOrder, tank.dir)
+        if currentIdx = -1 then currentIdx = 0 ' Fallback to "up" if not found
         tank.dir = dirOrder[(currentIdx + 1) mod 4]
         UpdateTankPosition()
     else if input.action = "shoot"
         mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
         mazeOffsetY = m.screenHeight / 8
         bullet = CreateObject("roSGNode", "Rectangle")
-        bullet.width = 5
-        bullet.height = 5
         bullet.color = "#FF0000"
-        bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2]
+        if tank.dir = "left" or tank.dir = "right"
+            bullet.width = 10 ' Stretch horizontally
+            bullet.height = 5
+            bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2 - 5, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2 - 2.5]
+        else ' up or down
+            bullet.width = 5
+            bullet.height = 10 ' Stretch vertically
+            bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2 - 2.5, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2 - 5]
+        end if
         m.bulletsGroup.AppendChild(bullet)
         m.bullets.Push({ pos: { x: tank.pos.x, y: tank.pos.y }, dir: tank.dir, node: bullet, lifeDeducted: false })
         print "Bullet spawned at: "; bullet.translation[0]; ","; bullet.translation[1]
@@ -428,16 +443,15 @@ sub ResetLevel(restartSameLevel as boolean)
         m.score.lives = Min(m.score.lives + 1, 5)
         m.score.total = m.score.total + m.score.hits * m.score.lives + Max(0, 100 - m.score.moves * 2)
         m.level = m.level + 1
-        m.mazeWidth = Min(7 + Fix(m.level / 3) * 2, 13)
-        m.mazeHeight = m.mazeWidth
-        if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
-        if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
+        ' No size adjustment - stays 21x13 from Init()
     end if
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
+    print "New maze size: "; m.mazeWidth; "x"; m.mazeHeight
     m.score.moves = 0
     m.gameOver = false
     m.levelCleared = false
     m.message.visible = false
+    RenderMaze()
     InitLevel()
     UpdateTankPosition()
     UpdateScoreboard()
@@ -532,7 +546,12 @@ sub Update(deltaTime as float)
         vec = dirVectors[bullet.dir]
         bullet.pos.x = bullet.pos.x + vec.x
         bullet.pos.y = bullet.pos.y + vec.y
-        bullet.node.translation = [bullet.pos.x * m.cellSize + mazeOffsetX, bullet.pos.y * m.cellSize + mazeOffsetY]
+        ' Center bullet in pathway, adjust for size
+        if bullet.dir = "left" or bullet.dir = "right"
+            bullet.node.translation = [(bullet.pos.x + 0.5) * m.cellSize + mazeOffsetX - 5, (bullet.pos.y + 0.5) * m.cellSize + mazeOffsetY - 2.5]
+        else ' up or down
+            bullet.node.translation = [(bullet.pos.x + 0.5) * m.cellSize + mazeOffsetX - 2.5, (bullet.pos.y + 0.5) * m.cellSize + mazeOffsetY - 5]
+        end if
         gridX = Fix(bullet.pos.x)
         gridY = Fix(bullet.pos.y)
         if not IsValidMove({ x: gridX, y: gridY })
@@ -601,10 +620,13 @@ sub Update(deltaTime as float)
         m.message.text = "Game Over"
         m.message.visible = true
         m.timer.control = "stop"
-        delayTimer = CreateObject("roSGNode", "Timer")
-        delayTimer.duration = 3
-        delayTimer.ObserveField("fire", "OnGameOverDelay")
-        delayTimer.control = "start"
+        if m.gameOverTimer = invalid
+            m.gameOverTimer = CreateObject("roSGNode", "Timer")
+            m.gameOverTimer.duration = 3
+            m.gameOverTimer.ObserveField("fire", "OnGameOverDelay")
+            m.gameOverTimer.control = "start"
+            print "Game Over timer started"
+        end if
     else
         allTargetsHit = true
         for each target in m.targets
@@ -618,23 +640,36 @@ sub Update(deltaTime as float)
             m.message.text = "Level Cleared!"
             m.message.visible = true
             m.timer.control = "stop"
-            delayTimer = CreateObject("roSGNode", "Timer")
-            delayTimer.duration = 2
-            delayTimer.ObserveField("fire", "OnLevelClearedDelay")
-            delayTimer.control = "start"
+            if m.levelClearedTimer = invalid
+                m.levelClearedTimer = CreateObject("roSGNode", "Timer")
+                m.levelClearedTimer.duration = 2
+                m.levelClearedTimer.ObserveField("fire", "OnLevelClearedDelay")
+                m.levelClearedTimer.control = "start"
+                print "Level Cleared timer started"
+            end if
         end if
     end if
 end sub
 
 sub OnGameOverDelay()
+    print "Game Over delay triggered"
     m.score.lives = 5
     if m.level > 1 then m.level = m.level - 1
     ResetLevel(true)
+    m.message.visible = false
+    m.gameOver = false
+    m.gameOverTimer.control = "stop"
+    m.gameOverTimer = invalid ' Reset for next use
     m.timer.control = "start"
 end sub
 
 sub OnLevelClearedDelay()
+    print "Level Cleared delay triggered"
     ResetLevel(false)
+    m.message.visible = false
+    m.levelCleared = false
+    m.levelClearedTimer.control = "stop"
+    m.levelClearedTimer = invalid ' Reset for next use
     m.timer.control = "start"
 end sub
 
@@ -682,6 +717,14 @@ sub ClearChildren(node as object)
         node.RemoveChildIndex(0)
     end while
 end sub
+
+function FindIndex(array as object, value as string) as integer
+    if type(array) <> "roArray" then return -1
+    for i = 0 to array.Count() - 1
+        if array[i] = value then return i
+    end for
+    return -1
+end function
 
 function CopyArray(source as object) as object
     if type(source) <> "roArray" then return invalid

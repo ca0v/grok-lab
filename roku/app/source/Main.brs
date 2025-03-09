@@ -10,5 +10,8 @@ sub Main()
 
     while true
         msg = Wait(0, m.port)
+        if type(msg) = "roSGNodeEvent" then
+            print "Event received: "; msg.GetField()
+        end if
     end while
 end sub
