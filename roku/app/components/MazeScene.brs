@@ -36,9 +36,7 @@ sub Init()
     print "MazeGroup: "; m.mazeGroup <> invalid; " Type: "; type(m.mazeGroup); " SubType: "; m.mazeGroup.subType()
     m.tankNode = m.top.FindNode("tank")
     print "Tank: "; m.tankNode <> invalid
-    ClearChildren(m.tankNode)
-    pixelSize = m.cellSize / 16
-    pixelMap = [
+    tankPixelMap = [
         "0000000110000000",
         "0000000BB0000000",
         "0000000110000000",
@@ -56,24 +54,7 @@ sub Init()
         "0111000000001110",
         "0111000000001110"
     ]
-    for y = 0 to 15
-        row = pixelMap[y]
-        for x = 0 to 15
-            pixel = row.Mid(x, 1)
-            if pixel = "1" or pixel = "B"
-                rect = CreateObject("roSGNode", "Rectangle")
-                rect.width = pixelSize
-                rect.height = pixelSize
-                rect.translation = [x * pixelSize - m.cellSize / 2, y * pixelSize - m.cellSize / 2] ' Center at (0,0)
-                if pixel = "1" then
-                    rect.color = "#B6B6E9"
-                else
-                    rect.color = "#666699"
-                end if
-                m.tankNode.AppendChild(rect)
-            end if
-        end for
-    end for
+    BuildSprite(m.tankNode, tankPixelMap, m.cellSize)
     m.chaosMonsterNode = m.top.FindNode("chaosMonster")
     print "ChaosMonster: "; m.chaosMonsterNode <> invalid
     m.bulletsGroup = m.top.FindNode("bulletsGroup")
@@ -180,25 +161,42 @@ sub InitLevel()
     print "Offsets in InitLevel: "; mazeOffsetX; ","; mazeOffsetY
 
     targetCount = 3 + Fix((m.level - 1) / 3)
+    targetPixelMap = [
+        "0000000000000000",
+        "0RRR00000000RRR0",
+        "0R000000000000R0",
+        "0R000000000000R0",
+        "0000000000000000",
+        "0000000000000000",
+        "0000000000000000",
+        "000000RRR0000000",
+        "000000RBR0000000",
+        "000000RRR0000000",
+        "0000000000000000",
+        "0000000000000000",
+        "0R000000000000R0",
+        "0R000000000000R0",
+        "0RRR00000000RRR0",
+        "0000000000000000"
+    ]
     for i = 1 to targetCount
         position = GetRandomOpenPosition()
         while IsPositionOccupied(position)
             position = GetRandomOpenPosition()
         end while
-        target = CreateObject("roSGNode", "Rectangle")
-        target.width = m.cellSize * 0.8
-        target.height = m.cellSize * 0.8
-        target.translation = [position.x * m.cellSize + mazeOffsetX, position.y * m.cellSize + mazeOffsetY]
-        target.color = "#FF4500"
+        targetGroup = CreateObject("roSGNode", "Group")
+        BuildSprite(targetGroup, targetPixelMap, m.cellSize * 0.8)
+        ' Center the group at the cell's midpoint, adjust for last tweak
+        targetGroup.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.4 + 2, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.4 + 2]
         label = CreateObject("roSGNode", "Label")
         label.font = "font:SmallSystemFont"
         label.text = i.ToStr()
         label.color = "#FFFFFF"
-        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.1, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.1]
-        m.targetsGroup.AppendChild(target)
+        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.2, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
+        m.targetsGroup.AppendChild(targetGroup)
         m.targetsGroup.AppendChild(label)
-        m.targets.Push({ pos: position, num: i, hit: false, node: target, label: label, flashTimer: 0 })
-        print "Target "; i; " at: "; target.translation[0]; ","; target.translation[1]
+        m.targets.Push({ pos: position, num: i, hit: false, node: targetGroup, label: label, flashTimer: 0 })
+        print "Target "; i; " at: "; targetGroup.translation[0]; ","; targetGroup.translation[1]
     end for
 
     if m.level >= 4
@@ -754,6 +752,41 @@ function IsPowerUpAtPosition(position as object) as boolean
     end for
     return false
 end function
+
+sub BuildSprite(container as object, pixelMap as object, size as float)
+    if container = invalid or type(container) <> "roSGNode" or pixelMap = invalid or pixelMap.Count() = 0 then return
+    ClearChildren(container)
+    
+    rows = pixelMap.Count()
+    columns = pixelMap[0].Len()
+    for each row in pixelMap
+        if row.Len() <> columns then return ' Invalid map
+    end for
+    
+    pixelSize = Fix(size / columns) ' Integer size to avoid anti-aliasing
+    if pixelSize < 1 then pixelSize = 1 ' Minimum size to ensure visibility
+    spriteSize = pixelSize * columns ' Actual sprite size may differ from requested
+    for y = 0 to rows - 1
+        row = pixelMap[y]
+        for x = 0 to columns - 1
+            pixel = row.Mid(x, 1)
+            if pixel <> "0"
+                rect = CreateObject("roSGNode", "Rectangle")
+                rect.width = pixelSize
+                rect.height = pixelSize
+                rect.translation = [x * pixelSize - spriteSize / 2, y * pixelSize - spriteSize / 2] ' Center at (0,0)
+                if pixel = "1"
+                    rect.color = "#B6B6E9" ' Targets or tank body
+                else if pixel = "B"
+                    rect.color = "#666699" ' Tank barrel
+                else
+                    rect.color = "#FF4500" ' Default to target color
+                end if
+                container.AppendChild(rect)
+            end if
+        end for
+    end for
+end sub
 
 sub ClearChildren(node as object)
     if node = invalid or type(node) <> "roSGNode" then return
