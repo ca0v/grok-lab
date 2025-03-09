@@ -8,7 +8,7 @@ The app is contained in the `maze-memory/` directory, which is zipped and deploy
 
 - **`manifest`**:
 
-  - Metadata for the Roku app, including title ("Maze Memory"), version (1.0.0), and icon/splash screen placeholders. These image paths (`pkg:/images/...`) are optional and require assets in an `images/` folder if used.
+  - Metadata for the Roku app, including title ("Maze Memory"), version (1.0.0), and icon/splash screen paths (`pkg:/images/...`). These images are generated from a screenshot and stored in the project root’s `images/` folder.
 
 - **`source/Main.brs`**:
 
@@ -23,7 +23,11 @@ The app is contained in the `maze-memory/` directory, which is zipped and deploy
   - The core logic of the game. Implements maze generation, tank movement (arrows for `moveFar`, rewind/play/fast-forward for `moveOne`/rotate), shooting (OK), target hitting, chaos monster AI, power-ups, markers (\*), peek (options), scoring, and level progression. Uses a 30 FPS timer for updates and scales elements based on screen size from `roDeviceInfo.GetDisplaySize()`.
 
 - **`deploy.js`**:
-  - A Node.js script that automates packaging and deployment. Zips the `maze-memory/` directory into `maze-memory.zip` and uploads it to the Roku device at IP `123.123.123.123` using `roku-deploy`.
+
+  - A Node.js script that zips `maze-memory/` into `maze-memory.zip` and uploads it to the Roku device at IP `123.123.123.123` using `roku-deploy`.
+
+- **`generate-images.js`**:
+  - A Node.js script that generates `icon_hd.png`, `icon_sd.png`, `splash_hd.png`, and `splash_sd.png` from `screenshot.png`, scaling the full image to fit each target size with padding, and saves them to `./images/`.
 
 ## Prerequisites
 
@@ -34,7 +38,7 @@ The app is contained in the `maze-memory/` directory, which is zipped and deploy
 
 ## Enabling Developer Mode on Roku
 
-To sideload the app, you need to enable developer mode on your Roku device:
+To sideload the app, enable developer mode on your Roku device:
 
 1. **Access Developer Settings**:
 
@@ -55,15 +59,10 @@ To sideload the app, you need to enable developer mode on your Roku device:
 4. **Verify**:
    - After reboot, visit `http://123.123.123.123` in a browser. You should see the "Development Application Installer" page. Log in with `rokudev` and your password.
 
-## Deployment Process
-
-The app is deployed using a Node.js script (`deploy.js`) that zips and uploads the app to your Roku device.
-
-### Setup
+## Setup
 
 1. **Install Dependencies**:
-   - In the project root (where `maze-memory/` and `deploy.js` are), run:
+   - In the project root (where `maze-memory/`, `deploy.js`, and `generate-images.js` are), run:
      ```bash
-     npm init -y
-     npm install roku-deploy --save-dev
+     npm install
      ```
