@@ -1,0 +1,19 @@
+{
+  "name": "roku",
+  "version": "1.0.0",
+  "description": "This is a Roku port of the \"Maze Memory\" game, originally developed as a web app hosted at [https://ca0v.github.io/grok-lab/maze-memory.html](https://ca0v.github.io/grok-lab/maze-memory.html). The game features a tank navigating a maze, shooting targets in sequence, avoiding a chaos monster, collecting power-ups, and managing lives and scores across levels. This port was created by Grok, an AI assistant from xAI, translating the original TypeScript, HTML, and CSS into BrightScript and SceneGraph for Roku compatibility.",
+  "main": "deploy.js",
+  "scripts": {
+    "generate-images": "node generate-images.js",
+    "build": "cd maze-memory && zip -r ../maze-memory.zip *",
+    "deploy": "node deploy.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "roku-deploy": "^3.12.4",
+    "sharp": "^0.33.2"
+  }
+}
