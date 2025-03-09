@@ -393,9 +393,9 @@ function OnKeyEvent(key as string, press as boolean) as boolean
         "down": { action: "moveFar", dir: "down" },
         "left": { action: "moveFar", dir: "left" },
         "right": { action: "moveFar", dir: "right" },
-        "rewind": { action: "moveOne", dir: "left" },
-        "play": { action: "rotate" },
-        "fastforward": { action: "moveOne", dir: "right" },
+        "rewind": { action: "rotateCCW" }, ' Changed from moveOne left
+        "play": { action: "moveOne" }, ' Changed from rotate, no dir needed
+        "fastforward": { action: "rotateCW" }, ' Changed from moveOne right
         "OK": { action: "shoot" },
         "back": { action: "reset" },
         "*": { action: "marker" },
@@ -418,24 +418,28 @@ sub HandleInput(input as object)
         tank.dir = input.dir
         m.score.moves = m.score.moves + 1
         UpdateTankPosition()
-    else if input.action = "moveOne" and input.dir <> invalid
-        if tank.dir <> input.dir
-            tank.dir = input.dir
+    else if input.action = "moveOne"
+        ' Move one space in current direction
+        vec = dirVectors[tank.dir]
+        newPos = { x: tank.targetPos.x + vec.x, y: tank.targetPos.y + vec.y }
+        if IsValidMove(newPos)
+            tank.targetPos = newPos
+            tank.pos = newPos
+            m.score.moves = m.score.moves + 1
             UpdateTankPosition()
-        else
-            vec = dirVectors[input.dir]
-            newPos = { x: tank.targetPos.x + vec.x, y: tank.targetPos.y + vec.y }
-            if IsValidMove(newPos)
-                tank.targetPos = newPos
-                tank.pos = newPos
-                m.score.moves = m.score.moves + 1
-                UpdateTankPosition()
-            end if
         end if
-    else if input.action = "rotate"
+    else if input.action = "rotateCW"
+        ' Rotate clockwise
         dirOrder = ["up", "right", "down", "left"]
         currentIdx = FindIndex(dirOrder, tank.dir)
-        if currentIdx = -1 then currentIdx = 0 ' Fallback to "up" if not found
+        if currentIdx = -1 then currentIdx = 0
+        tank.dir = dirOrder[(currentIdx + 1) mod 4]
+        UpdateTankPosition()
+    else if input.action = "rotateCCW"
+        ' Rotate counterclockwise
+        dirOrder = ["up", "left", "down", "right"]
+        currentIdx = FindIndex(dirOrder, tank.dir)
+        if currentIdx = -1 then currentIdx = 0
         tank.dir = dirOrder[(currentIdx + 1) mod 4]
         UpdateTankPosition()
     else if input.action = "shoot"
@@ -444,12 +448,12 @@ sub HandleInput(input as object)
         bullet = CreateObject("roSGNode", "Rectangle")
         bullet.color = "#FF0000"
         if tank.dir = "left" or tank.dir = "right"
-            bullet.width = 10 ' Stretch horizontally
+            bullet.width = 10
             bullet.height = 5
             bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2 - 5, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2 - 2.5]
         else ' up or down
             bullet.width = 5
-            bullet.height = 10 ' Stretch vertically
+            bullet.height = 10
             bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2 - 2.5, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2 - 5]
         end if
         m.bulletsGroup.AppendChild(bullet)
