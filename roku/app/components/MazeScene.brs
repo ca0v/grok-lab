@@ -159,7 +159,7 @@ sub InitLevel()
     ClearChildren(m.powerUpsGroup)
     m.powerUps = []
     m.currentTarget = 1
-    m.markers = { "X": invalid, "Y": invalid } ' Reset both markers
+    m.markers = { "X": invalid, "Y": invalid }
     m.markerXNode.visible = false
     m.markerYNode.visible = false
     m.numberTimer = 5000
@@ -196,14 +196,14 @@ sub InitLevel()
         BuildSprite(targetGroup, targetPixelMap, m.cellSize * 0.8)
         targetGroup.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.4 + 2, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.4 + 2]
         label = CreateObject("roSGNode", "Label")
-        label.font = "font:SmallSystemFont"
+        label.font = "font:MediumBoldSystemFont"
         label.text = i.ToStr()
         label.color = "#FFFFFF"
-        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.2, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
+        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.3, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2] ' Center in 32x32 target
         m.targetsGroup.AppendChild(targetGroup)
         m.targetsGroup.AppendChild(label)
         m.targets.Push({ pos: position, num: i, hit: false, node: targetGroup, label: label, flashTimer: 0 })
-        print "Target "; i; " at: "; targetGroup.translation[0]; ","; targetGroup.translation[1]
+        print "Target "; i; " at: "; targetGroup.translation[0]; ","; targetGroup.translation[1]; " label at: "; label.translation[0]; ","; label.translation[1]
     end for
 
     if m.level >= 4
@@ -397,13 +397,13 @@ function OnKeyEvent(key as string, press as boolean) as boolean
         "down": { action: "moveFar", dir: "down" },
         "left": { action: "moveFar", dir: "left" },
         "right": { action: "moveFar", dir: "right" },
-        "rewind": { action: "rotateCCW" }, ' Changed from moveOne left
+        "replay": { action: "rotateCCW" }, ' Changed from moveOne left
         "play": { action: "moveOne" }, ' Changed from rotate, no dir needed
-        "fastforward": { action: "rotateCW" }, ' Changed from moveOne right
+        "options": { action: "rotateCW" }, ' Changed from moveOne right
         "OK": { action: "shoot" },
         "back": { action: "reset" },
-        "replay": { action: "marker", marker: "X" },
-        "options": { action: "marker", marker: "Y" }
+        "rewind": { action: "marker", marker: "X" },
+        "fastforward": { action: "marker", marker: "Y" }
     }
     input = inputMap[key]
     if input <> invalid
