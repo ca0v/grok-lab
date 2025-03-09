@@ -6,9 +6,9 @@ sub Init()
     m.screenHeight = screenSize.h
     print "Screen size: "; m.screenWidth; "x"; m.screenHeight
 
-    m.cellSize = m.screenWidth / 32
-    m.mazeWidth = Fix(m.screenWidth / m.cellSize) ' 40 -> 41
-    m.mazeHeight = Fix((m.screenHeight - m.screenHeight / 8) / m.cellSize) ' 19
+    m.cellSize = m.screenWidth / 32 ' ~40px
+    m.mazeWidth = 21 ' Reduced from 33
+    m.mazeHeight = 13 ' Reduced from 15
     if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
     if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
@@ -218,26 +218,8 @@ sub Shuffle(array as object)
     end for
 end sub
 
-' Helper: Carves the maze recursively
-sub Carve(x as integer, y as integer, maze as object, directions as object, width as integer, height as integer)
-    maze[y][x] = 0
-    dirs = CopyArray(directions)
-    if dirs = invalid then print "CopyArray failed" : return
-    Shuffle(dirs)
-    for each dir in dirs
-        dx = dir[0]
-        dy = dir[1]
-        newX = x + dx
-        newY = y + dy
-        if newX > 0 and newX < width - 1 and newY > 0 and newY < height - 1 and maze[newY][newX] = 1
-            maze[y + dy / 2][x + dx / 2] = 0
-            Carve(newX, newY, maze, directions, width, height) ' Line 206
-        end if
-    end for
-end sub
-
-
-sub GenerateMaze(width as integer, height as integer) as object
+function GenerateMaze(width as integer, height as integer) as object
+    ' Initialize grid with walls (1)
     maze = CreateObject("roArray", height, true)
     for y = 0 to height - 1
         maze[y] = CreateObject("roArray", width, true)
@@ -245,41 +227,40 @@ sub GenerateMaze(width as integer, height as integer) as object
             maze[y][x] = 1
         end for
     end for
-    directions = [[2, 0], [-2, 0], [0, 2], [0, -2]]
-    CarveIterative(1, 1, maze, directions, width, height) ' Use iterative version
+
+    ' Start carving from (1,1)
+    Carve(1, 1, maze, width, height)
+
+    ' Ensure bottom row is solid (optional, per original)
     for x = 0 to width - 1
         maze[height - 1][x] = 1
     end for
+
     return maze
-end sub
+end function
 
-sub CarveIterative(startX as integer, startY as integer, maze as object, directions as object, width as integer, height as integer)
-    stack = CreateObject("roArray", 0, true)
-    stack.Push({ x: startX, y: startY })
+sub Carve(x as integer, y as integer, maze as object, width as integer, height as integer)
+    ' Directions: right, down, left, up
+    directions = [[2, 0], [0, 2], [-2, 0], [0, -2]]
+    dirs = CopyArray(directions)
+    Shuffle(dirs)
 
-    while stack.Count() > 0
-        current = stack.Pop()
-        x = current.x
-        y = current.y
+    ' Mark current cell as path
+    maze[y][x] = 0
 
-        if maze[y][x] = 1 ' Only carve if unvisited
-            maze[y][x] = 0
-            dirs = CopyArray(directions)
-            if dirs = invalid then print "CopyArray failed" : return
-            Shuffle(dirs)
+    for each dir in dirs
+        dx = dir[0]
+        dy = dir[1]
+        newX = x + dx
+        newY = y + dy
 
-            for each dir in dirs
-                dx = dir[0]
-                dy = dir[1]
-                newX = x + dx
-                newY = y + dy
-                if newX > 0 and newX < width - 1 and newY > 0 and newY < height - 1 and maze[newY][newX] = 1
-                    maze[y + dy / 2][x + dx / 2] = 0 ' Carve passage
-                    stack.Push({ x: newX, y: newY }) ' Add next position to stack
-                end if
-            end for
+        ' Check if new position is within bounds and unvisited (wall)
+        if newX >= 0 and newX < width and newY >= 0 and newY < height and maze[newY][newX] = 1
+            ' Carve passage between current and new cell
+            maze[y + dy / 2][x + dx / 2] = 0
+            Carve(newX, newY, maze, width, height)
         end if
-    end while
+    end for
 end sub
 
 function GetRandomOpenPosition() as object
