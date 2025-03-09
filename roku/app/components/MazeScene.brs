@@ -6,9 +6,9 @@ sub Init()
     m.screenHeight = screenSize.h
     print "Screen size: "; m.screenWidth; "x"; m.screenHeight
 
-    m.cellSize = m.screenWidth / 32 ' ~40px
-    m.mazeWidth = 21 ' Reduced from 33
-    m.mazeHeight = 13 ' Reduced from 15
+    m.cellSize = m.screenWidth / 32
+    m.mazeWidth = 21
+    m.mazeHeight = 13
     if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
     if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
@@ -56,6 +56,7 @@ sub Init()
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
     mazeOffsetY = m.screenHeight / 8
     m.mazeGroup.translation = [mazeOffsetX, mazeOffsetY]
+    print "Maze offset: "; mazeOffsetX; ","; mazeOffsetY
     m.tankNode.width = m.cellSize
     m.tankNode.height = m.cellSize
     m.chaosMonsterNode.width = m.cellSize
@@ -126,7 +127,7 @@ sub InitLevel()
     m.tank.pos = GetRandomOpenPosition()
     m.tank.targetPos = m.tank.pos
     m.bullets = []
-    ClearChildren(m.bulletsGroup) ' Use ClearChildren instead of RemoveChildren
+    ClearChildren(m.bulletsGroup)
     ClearChildren(m.targetsGroup)
     m.targets = []
     ClearChildren(m.powerUpsGroup)
@@ -135,6 +136,9 @@ sub InitLevel()
     m.marker = invalid
     m.markerNode.visible = false
     m.numberTimer = 5000
+
+    mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+    mazeOffsetY = m.screenHeight / 8
 
     targetCount = 3 + Fix((m.level - 1) / 3)
     for i = 1 to targetCount
@@ -145,16 +149,17 @@ sub InitLevel()
         target = CreateObject("roSGNode", "Rectangle")
         target.width = m.cellSize * 0.8
         target.height = m.cellSize * 0.8
-        target.translation = [position.x * m.cellSize + m.cellSize * 0.1, position.y * m.cellSize + m.cellSize * 0.1]
+        target.translation = [position.x * m.cellSize + mazeOffsetX, position.y * m.cellSize + mazeOffsetY]
         target.color = "#FF4500"
         label = CreateObject("roSGNode", "Label")
         label.font = "font:SmallSystemFont"
         label.text = i.ToStr()
         label.color = "#FFFFFF"
-        label.translation = [position.x * m.cellSize + m.cellSize * 0.2, position.y * m.cellSize + m.cellSize * 0.2]
+        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.1, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.1]
         m.targetsGroup.AppendChild(target)
         m.targetsGroup.AppendChild(label)
         m.targets.Push({ pos: position, num: i, hit: false, node: target, label: label, flashTimer: 0 })
+        print "Target "; i; " at: "; target.translation[0]; ","; target.translation[1]
     end for
 
     if m.level >= 4
@@ -186,7 +191,10 @@ sub InitLevel()
 end sub
 
 sub UpdateTankPosition()
-    m.tankNode.translation = [m.tank.pos.x * m.cellSize, m.tank.pos.y * m.cellSize]
+    mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+    mazeOffsetY = m.screenHeight / 8
+    m.tankNode.translation = [m.tank.pos.x * m.cellSize + mazeOffsetX, m.tank.pos.y * m.cellSize + mazeOffsetY]
+    print "Tank position: "; m.tank.pos.x; ","; m.tank.pos.y; " translated to: "; m.tankNode.translation[0]; ","; m.tankNode.translation[1]
 end sub
 
 sub UpdateChaosMonsterPosition()
@@ -382,13 +390,16 @@ sub HandleInput(input as object)
         tank.dir = dirOrder[(currentIdx + 1) mod 4]
         UpdateTankPosition()
     else if input.action = "shoot"
+        mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+        mazeOffsetY = m.screenHeight / 8
         bullet = CreateObject("roSGNode", "Rectangle")
         bullet.width = 5
         bullet.height = 5
         bullet.color = "#FF0000"
-        bullet.translation = [tank.pos.x * m.cellSize + m.cellSize / 2, tank.pos.y * m.cellSize + m.cellSize / 2]
+        bullet.translation = [tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2, tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2]
         m.bulletsGroup.AppendChild(bullet)
         m.bullets.Push({ pos: { x: tank.pos.x, y: tank.pos.y }, dir: tank.dir, node: bullet, lifeDeducted: false })
+        print "Bullet spawned at: "; bullet.translation[0]; ","; bullet.translation[1]
     else if input.action = "marker"
         if m.marker = invalid
             m.marker = { x: tank.pos.x, y: tank.pos.y }
@@ -513,13 +524,15 @@ sub Update(deltaTime as float)
     UpdateChaosMonster(deltaTime)
 
     ' Update bullets
+    mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+    mazeOffsetY = m.screenHeight / 8
     for i = m.bullets.Count() - 1 to 0 step -1
         bullet = m.bullets[i]
         dirVectors = { "up": { x: 0, y: -0.4 }, "down": { x: 0, y: 0.4 }, "left": { x: -0.4, y: 0 }, "right": { x: 0.4, y: 0 } }
         vec = dirVectors[bullet.dir]
         bullet.pos.x = bullet.pos.x + vec.x
         bullet.pos.y = bullet.pos.y + vec.y
-        bullet.node.translation = [bullet.pos.x * m.cellSize, bullet.pos.y * m.cellSize]
+        bullet.node.translation = [bullet.pos.x * m.cellSize + mazeOffsetX, bullet.pos.y * m.cellSize + mazeOffsetY]
         gridX = Fix(bullet.pos.x)
         gridY = Fix(bullet.pos.y)
         if not IsValidMove({ x: gridX, y: gridY })
