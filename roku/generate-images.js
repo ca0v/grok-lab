@@ -4,7 +4,7 @@ const path = require("path");
 
 // Configuration
 const inputFile = "screenshot.jpg"; // Input screenshot in project root
-const outputDir = "./images"; // Output folder (updated per your change)
+const outputDir = "./app/images"; // Output folder (updated per your change)
 const imageConfigs = [
   { name: "icon_hd.png", width: 540, height: 405 },
   { name: "icon_sd.png", width: 290, height: 218 },

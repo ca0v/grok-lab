@@ -5,7 +5,7 @@
   "main": "deploy.js",
   "scripts": {
     "generate-images": "node generate-images.js",
-    "build": "cd maze-memory && zip -r ../maze-memory.zip *",
+    "build": "bslint app/**/*.brs",
     "deploy": "node deploy.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@rokucommunity/bslint": "^0.8.26",
     "roku-deploy": "^3.12.4",
     "sharp": "^0.33.2"
   }

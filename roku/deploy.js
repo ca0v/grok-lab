@@ -3,7 +3,7 @@ const rokuDeploy = require("roku-deploy");
 const deployOptions = {
   host: "123.123.123.123", // Your Roku IP
   password: "rokutest", // Replace with your actual password
-  rootDir: "./maze-memory", // Source folder
+  rootDir: "./app", // Source folder
   outDir: "./dist", // Output folder for the zip
   outFile: "maze-memory.zip", // Zip file name
 };
