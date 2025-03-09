@@ -4,7 +4,7 @@
     <children>
         <Rectangle id="background" color="#333333" />
         <Group id="mazeGroup" />
-        <Rectangle id="tank" color="#B6B6E9" />
+        <Group id="tank" /> <!-- Changed from Rectangle to Group -->
         <Rectangle id="chaosMonster" color="#00FF0080" visible="false" />
         <Group id="bulletsGroup" />
         <Group id="targetsGroup" />

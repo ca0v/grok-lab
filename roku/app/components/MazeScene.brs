@@ -36,6 +36,44 @@ sub Init()
     print "MazeGroup: "; m.mazeGroup <> invalid; " Type: "; type(m.mazeGroup); " SubType: "; m.mazeGroup.subType()
     m.tankNode = m.top.FindNode("tank")
     print "Tank: "; m.tankNode <> invalid
+    ClearChildren(m.tankNode)
+    pixelSize = m.cellSize / 16
+    pixelMap = [
+        "0000000110000000",
+        "0000000BB0000000",
+        "0000000110000000",
+        "0000000110000000",
+        "0000000110000000",
+        "0111100110011110",
+        "0111100110011110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111111111111110",
+        "0111000000001110",
+        "0111000000001110"
+    ]
+    for y = 0 to 15
+        row = pixelMap[y]
+        for x = 0 to 15
+            pixel = row.Mid(x, 1)
+            if pixel = "1" or pixel = "B"
+                rect = CreateObject("roSGNode", "Rectangle")
+                rect.width = pixelSize
+                rect.height = pixelSize
+                rect.translation = [x * pixelSize - m.cellSize / 2, y * pixelSize - m.cellSize / 2] ' Center at (0,0)
+                if pixel = "1" then
+                    rect.color = "#B6B6E9"
+                else
+                    rect.color = "#666699"
+                end if
+                m.tankNode.AppendChild(rect)
+            end if
+        end for
+    end for
     m.chaosMonsterNode = m.top.FindNode("chaosMonster")
     print "ChaosMonster: "; m.chaosMonsterNode <> invalid
     m.bulletsGroup = m.top.FindNode("bulletsGroup")
@@ -59,8 +97,6 @@ sub Init()
     mazeOffsetY = m.screenHeight / 8
     m.mazeGroup.translation = [mazeOffsetX, mazeOffsetY]
     print "Maze offset: "; mazeOffsetX; ","; mazeOffsetY
-    m.tankNode.width = m.cellSize
-    m.tankNode.height = m.cellSize
     m.chaosMonsterNode.width = m.cellSize
     m.chaosMonsterNode.height = m.cellSize
     m.scoreboard.translation = [mazeOffsetX, m.screenHeight / 16]
@@ -197,8 +233,12 @@ end sub
 sub UpdateTankPosition()
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
     mazeOffsetY = m.screenHeight / 8
-    m.tankNode.translation = [m.tank.pos.x * m.cellSize + mazeOffsetX, m.tank.pos.y * m.cellSize + mazeOffsetY]
-    print "Tank position: "; m.tank.pos.x; ","; m.tank.pos.y; " translated to: "; m.tankNode.translation[0]; ","; m.tankNode.translation[1]
+    ' Position tank Group with center at cell position
+    m.tankNode.translation = [m.tank.pos.x * m.cellSize + mazeOffsetX + m.cellSize / 2, m.tank.pos.y * m.cellSize + mazeOffsetY + m.cellSize / 2]
+    ' Rotate to match pixel map "up" as base
+    dirAngles = { "up": 0, "right": 270, "down": 180, "left": 90 }
+    m.tankNode.rotation = dirAngles[m.tank.dir] * 3.14159 / 180 ' Degrees to radians
+    print "Tank position: "; m.tank.pos.x; ","; m.tank.pos.y; " translated to: "; m.tankNode.translation[0]; ","; m.tankNode.translation[1]; " rotation: "; m.tankNode.rotation
 end sub
 
 sub UpdateChaosMonsterPosition()
