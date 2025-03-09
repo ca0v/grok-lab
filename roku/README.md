@@ -4,7 +4,7 @@ This is a Roku port of the "Maze Memory" game, originally developed as a web app
 
 ## Project Structure
 
-The app is contained in the `maze-memory/` directory, which is zipped and deployed to a Roku device. Here’s what each file does:
+The app is contained in the `app/` directory, which is zipped and deployed to a Roku device. Here’s what each file does:
 
 - **`manifest`**:
 
@@ -24,7 +24,7 @@ The app is contained in the `maze-memory/` directory, which is zipped and deploy
 
 - **`deploy.js`**:
 
-  - A Node.js script that zips `maze-memory/` into `maze-memory.zip` and uploads it to the Roku device at IP `123.123.123.123` using `roku-deploy`.
+  - A Node.js script that zips `app/` into `maze-memory.zip` and uploads it to the Roku device at IP `123.123.123.123` using `roku-deploy`.
 
 - **`generate-images.js`**:
   - A Node.js script that generates `icon_hd.png`, `icon_sd.png`, `splash_hd.png`, and `splash_sd.png` from `screenshot.png`, scaling the full image to fit each target size with padding, and saves them to `./images/`.
@@ -62,7 +62,7 @@ To sideload the app, enable developer mode on your Roku device:
 ## Setup
 
 1. **Install Dependencies**:
-   - In the project root (where `maze-memory/`, `deploy.js`, and `generate-images.js` are), run:
+   - In the project root (where `app/`, `deploy.js`, and `generate-images.js` are), run:
      ```bash
      npm install
      ```

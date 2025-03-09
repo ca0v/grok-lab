@@ -1,16 +1,19 @@
 sub Init()
+    print "Entering MazeScene Init"
     deviceInfo = CreateObject("roDeviceInfo")
     screenSize = deviceInfo.GetDisplaySize()
     m.screenWidth = screenSize.w
     m.screenHeight = screenSize.h
+    print "Screen size: "; m.screenWidth; "x"; m.screenHeight
 
-    ' Dynamic sizing
-    m.cellSize = m.screenWidth / 32 ' Scales maze to ~11-13 cells wide
-    m.mazeWidth = Fix(m.screenWidth / m.cellSize)
-    m.mazeHeight = Fix((m.screenHeight - m.screenHeight / 8) / m.cellSize) ' Reserve 1/8 for UI
+    m.cellSize = m.screenWidth / 32
+    m.mazeWidth = Fix(m.screenWidth / m.cellSize) ' 40 -> 41
+    m.mazeHeight = Fix((m.screenHeight - m.screenHeight / 8) / m.cellSize) ' 19
     if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
     if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
+    print "Maze generated: "; m.mazeWidth; "x"; m.mazeHeight; " (array: "; m.maze.Count(); "x"; m.maze[0].Count(); ")"
+
     m.tank = { pos: { x: 1, y: 1 }, targetPos: { x: 1, y: 1 }, dir: "right", currentAngle: 0 }
     m.chaosMonster = invalid
     m.bullets = []
@@ -26,22 +29,32 @@ sub Init()
     m.numberTimer = 5000
 
     m.background = m.top.FindNode("background")
+    print "Background: "; m.background <> invalid
     m.mazeGroup = m.top.FindNode("mazeGroup")
+    print "MazeGroup: "; m.mazeGroup <> invalid; " Type: "; type(m.mazeGroup); " SubType: "; m.mazeGroup.subType()
     m.tankNode = m.top.FindNode("tank")
+    print "Tank: "; m.tankNode <> invalid
     m.chaosMonsterNode = m.top.FindNode("chaosMonster")
+    print "ChaosMonster: "; m.chaosMonsterNode <> invalid
     m.bulletsGroup = m.top.FindNode("bulletsGroup")
+    print "BulletsGroup: "; m.bulletsGroup <> invalid
     m.targetsGroup = m.top.FindNode("targetsGroup")
+    print "TargetsGroup: "; m.targetsGroup <> invalid
     m.powerUpsGroup = m.top.FindNode("powerUpsGroup")
+    print "PowerUpsGroup: "; m.powerUpsGroup <> invalid
     m.markerNode = m.top.FindNode("marker")
+    print "Marker: "; m.markerNode <> invalid
     m.scoreboard = m.top.FindNode("scoreboard")
+    print "Scoreboard: "; m.scoreboard <> invalid
     m.instructions = m.top.FindNode("instructions")
+    print "Instructions: "; m.instructions <> invalid
     m.message = m.top.FindNode("message")
+    print "Message: "; m.message <> invalid
 
-    ' Set dynamic sizes and positions
     m.background.width = m.screenWidth
     m.background.height = m.screenHeight
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
-    mazeOffsetY = m.screenHeight / 8 ' Top 1/8 for scoreboard
+    mazeOffsetY = m.screenHeight / 8
     m.mazeGroup.translation = [mazeOffsetX, mazeOffsetY]
     m.tankNode.width = m.cellSize
     m.tankNode.height = m.cellSize
@@ -50,27 +63,50 @@ sub Init()
     m.scoreboard.translation = [mazeOffsetX, m.screenHeight / 16]
     m.instructions.translation = [mazeOffsetX, m.screenHeight - m.screenHeight / 16]
     m.message.translation = [m.screenWidth / 2, m.screenHeight / 2]
+    print "Nodes positioned"
 
     LoadGameState()
     RenderMaze()
     InitLevel()
     UpdateTankPosition()
     UpdateScoreboard()
+    print "Game state initialized"
 
     m.instructionsTimer = CreateObject("roTimespan")
     m.instructionsTimer.Mark()
 
     m.timer = CreateObject("roSGNode", "Timer")
+    print "Timer created: "; m.timer <> invalid
     m.timer.duration = 1 / 30
     m.timer.repeat = true
     m.timer.ObserveField("fire", "OnFrameEvent")
     m.timer.control = "start"
+    print "Timer started"
 
     m.top.SetFocus(true)
+    print "Focus set, Init complete"
 end sub
 
 sub RenderMaze()
-    m.mazeGroup.RemoveChildren()
+    print "Rendering maze"
+    if m.mazeGroup = invalid then
+        print "m.mazeGroup is invalid - attempting to re-find"
+        m.mazeGroup = m.top.FindNode("mazeGroup")
+        if m.mazeGroup = invalid then
+            print "m.mazeGroup still invalid - cannot render maze"
+            return
+        else
+            print "m.mazeGroup re-found: "; m.mazeGroup.subType()
+        end if
+    end if
+    print "m.mazeGroup subtype: "; m.mazeGroup.subType()
+    if m.mazeGroup.subType() <> "Group" then
+        print "m.mazeGroup is not a Group - cannot clear children"
+        return
+    end if
+    print "Child count before: "; m.mazeGroup.GetChildCount()
+    ClearChildren(m.mazeGroup)
+    print "Child count after: "; m.mazeGroup.GetChildCount()
     for y = 0 to m.mazeHeight - 1
         for x = 0 to m.mazeWidth - 1
             if m.maze[y][x] = 1
@@ -83,16 +119,17 @@ sub RenderMaze()
             end if
         end for
     end for
+    print "Maze rendered, children: "; m.mazeGroup.GetChildCount()
 end sub
 
 sub InitLevel()
     m.tank.pos = GetRandomOpenPosition()
     m.tank.targetPos = m.tank.pos
     m.bullets = []
-    m.bulletsGroup.RemoveChildren()
-    m.targetsGroup.RemoveChildren()
+    ClearChildren(m.bulletsGroup) ' Use ClearChildren instead of RemoveChildren
+    ClearChildren(m.targetsGroup)
     m.targets = []
-    m.powerUpsGroup.RemoveChildren()
+    ClearChildren(m.powerUpsGroup)
     m.powerUps = []
     m.currentTarget = 1
     m.marker = invalid
@@ -102,7 +139,7 @@ sub InitLevel()
     targetCount = 3 + Fix((m.level - 1) / 3)
     for i = 1 to targetCount
         position = GetRandomOpenPosition()
-        while m.targets.DoesExist(position.x.ToStr() + "," + position.y.ToStr()) or (position.x = m.tank.pos.x and position.y = m.tank.pos.y)
+        while IsPositionOccupied(position)
             position = GetRandomOpenPosition()
         end while
         target = CreateObject("roSGNode", "Rectangle")
@@ -122,7 +159,7 @@ sub InitLevel()
 
     if m.level >= 4
         position = GetRandomOpenPosition()
-        while m.targets.DoesExist(position.x.ToStr() + "," + position.y.ToStr()) or (position.x = m.tank.pos.x and position.y = m.tank.pos.y)
+        while IsPositionOccupied(position)
             position = GetRandomOpenPosition()
         end while
         m.chaosMonster = { pos: position, origin: position, speed: 4, holdingTarget: invalid, target: invalid }
@@ -134,7 +171,7 @@ sub InitLevel()
         powerUpCount = Min(Fix((m.level - 3) / 3), 5)
         for i = 1 to powerUpCount
             position = GetRandomOpenPosition()
-            while m.targets.DoesExist(position.x.ToStr() + "," + position.y.ToStr()) or (position.x = m.tank.pos.x and position.y = m.tank.pos.y) or m.powerUps.DoesExist(position.x.ToStr() + "," + position.y.ToStr())
+            while IsPositionOccupied(position) or IsPowerUpAtPosition(position)
                 position = GetRandomOpenPosition()
             end while
             powerUp = CreateObject("roSGNode", "Rectangle")
@@ -184,7 +221,8 @@ end sub
 ' Helper: Carves the maze recursively
 sub Carve(x as integer, y as integer, maze as object, directions as object, width as integer, height as integer)
     maze[y][x] = 0
-    dirs = directions.Copy() ' Create a copy to avoid modifying the original
+    dirs = CopyArray(directions)
+    if dirs = invalid then print "CopyArray failed" : return
     Shuffle(dirs)
     for each dir in dirs
         dx = dir[0]
@@ -193,12 +231,13 @@ sub Carve(x as integer, y as integer, maze as object, directions as object, widt
         newY = y + dy
         if newX > 0 and newX < width - 1 and newY > 0 and newY < height - 1 and maze[newY][newX] = 1
             maze[y + dy / 2][x + dx / 2] = 0
-            Carve(newX, newY, maze, directions, width, height)
+            Carve(newX, newY, maze, directions, width, height) ' Line 206
         end if
     end for
 end sub
 
-function GenerateMaze(width as integer, height as integer) as object
+
+sub GenerateMaze(width as integer, height as integer) as object
     maze = CreateObject("roArray", height, true)
     for y = 0 to height - 1
         maze[y] = CreateObject("roArray", width, true)
@@ -207,12 +246,41 @@ function GenerateMaze(width as integer, height as integer) as object
         end for
     end for
     directions = [[2, 0], [-2, 0], [0, 2], [0, -2]]
-    Carve(1, 1, maze, directions, width, height)
+    CarveIterative(1, 1, maze, directions, width, height) ' Use iterative version
     for x = 0 to width - 1
         maze[height - 1][x] = 1
     end for
     return maze
-end function
+end sub
+
+sub CarveIterative(startX as integer, startY as integer, maze as object, directions as object, width as integer, height as integer)
+    stack = CreateObject("roArray", 0, true)
+    stack.Push({ x: startX, y: startY })
+
+    while stack.Count() > 0
+        current = stack.Pop()
+        x = current.x
+        y = current.y
+
+        if maze[y][x] = 1 ' Only carve if unvisited
+            maze[y][x] = 0
+            dirs = CopyArray(directions)
+            if dirs = invalid then print "CopyArray failed" : return
+            Shuffle(dirs)
+
+            for each dir in dirs
+                dx = dir[0]
+                dy = dir[1]
+                newX = x + dx
+                newY = y + dy
+                if newX > 0 and newX < width - 1 and newY > 0 and newY < height - 1 and maze[newY][newX] = 1
+                    maze[y + dy / 2][x + dx / 2] = 0 ' Carve passage
+                    stack.Push({ x: newX, y: newY }) ' Add next position to stack
+                end if
+            end for
+        end if
+    end while
+end sub
 
 function GetRandomOpenPosition() as object
     attempts = 0
@@ -226,9 +294,9 @@ function GetRandomOpenPosition() as object
     return { x: 1, y: 1 }
 end function
 
-function IsValidMove(pos as object) as boolean
-    x = pos.x
-    y = pos.y
+function IsValidMove(position as object) as boolean
+    x = position.x
+    y = position.y
     return x >= 0 and x < m.mazeWidth and y >= 0 and y < m.mazeHeight and m.maze[y][x] = 0
 end function
 
@@ -244,7 +312,7 @@ function MoveFar(targetPos as object, dir as string) as object
     return newPos
 end function
 
-function IsIntersection(pos as object, fromDir as string) as boolean
+function IsIntersection(position as object, fromDir as string) as boolean
     directions = [
         { vec: { x: 0, y: -1 }, dir: "up" },
         { vec: { x: 0, y: 1 }, dir: "down" },
@@ -253,7 +321,7 @@ function IsIntersection(pos as object, fromDir as string) as boolean
     ]
     openPaths = 0
     for each d in directions
-        newPos = { x: pos.x + d.vec.x, y: pos.y + d.vec.y }
+        newPos = { x: position.x + d.vec.x, y: position.y + d.vec.y }
         if IsValidMove(newPos) and d.dir <> fromDir then openPaths = openPaths + 1
     end for
     return openPaths > 1
@@ -264,13 +332,13 @@ function OppositeDirection(dir as string) as string
     return opposites[dir]
 end function
 
-function FindNearestTarget(pos as object) as object
+function FindNearestTarget(position as object) as object
     nearest = invalid
     minDistance = 9999
     for each t in m.targets
         if not t.hit
-            dx = t.pos.x - pos.x
-            dy = t.pos.y - pos.y
+            dx = t.pos.x - position.x
+            dy = t.pos.y - position.y
             distance = Sqr(dx * dx + dy * dy)
             if distance < minDistance
                 minDistance = distance
@@ -598,6 +666,37 @@ sub LoadGameState()
     if total <> invalid then m.score.total = total.ToInt()
     if hits <> invalid then m.score.hits = hits.ToInt()
 end sub
+
+function IsPositionOccupied(position as object) as boolean
+    for each target in m.targets
+        if target.pos.x = position.x and target.pos.y = position.y then return true
+    end for
+    if position.x = m.tank.pos.x and position.y = m.tank.pos.y then return true
+    return false
+end function
+
+function IsPowerUpAtPosition(position as object) as boolean
+    for each powerUp in m.powerUps
+        if powerUp.pos.x = position.x and powerUp.pos.y = position.y then return true
+    end for
+    return false
+end function
+
+sub ClearChildren(node as object)
+    if node = invalid or type(node) <> "roSGNode" then return
+    while node.GetChildCount() > 0
+        node.RemoveChildIndex(0)
+    end while
+end sub
+
+function CopyArray(source as object) as object
+    if type(source) <> "roArray" then return invalid
+    copy = []
+    for each item in source
+        copy.Push(item)
+    end for
+    return copy
+end function
 
 function Min(a as integer, b as integer) as integer
     if a < b then
