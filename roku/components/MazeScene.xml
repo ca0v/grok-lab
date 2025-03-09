@@ -2,16 +2,16 @@
 <component name="MazeScene" extends="Scene">
     <script type="text/brightscript" uri="pkg:/components/MazeScene.brs" />
     <children>
-        <Rectangle id="background" width="1280" height="720" color="#333333" />
-        <Group id="mazeGroup" translation="[100, 100]" />
-        <Rectangle id="tank" width="40" height="40" color="#B6B6E9" />
-        <Rectangle id="chaosMonster" width="40" height="40" color="#00FF0080" visible="false" />
+        <Rectangle id="background" color="#333333" />
+        <Group id="mazeGroup" />
+        <Rectangle id="tank" color="#B6B6E9" />
+        <Rectangle id="chaosMonster" color="#00FF0080" visible="false" />
         <Group id="bulletsGroup" />
         <Group id="targetsGroup" />
         <Group id="powerUpsGroup" />
         <Label id="marker" font="font:MediumSystemFont" text="X" color="#FFFFFF" visible="false" />
-        <Label id="scoreboard" font="font:SmallSystemFont" color="#FFFFFF" translation="[100, 50]" />
-        <Label id="instructions" font="font:SmallSystemFont" color="#FF0000" translation="[100, 650]" text="Arrows: Move far, Rewind/Play/Fast-Forward: Move/Rotate, OK: Shoot, *: Marker, Options: Peek" />
-        <Label id="message" font="font:MediumSystemFont" color="#FFFFFF" translation="[640, 360]" horizAlign="center" vertAlign="center" visible="false" />
+        <Label id="scoreboard" font="font:SmallSystemFont" color="#FFFFFF" />
+        <Label id="instructions" font="font:SmallSystemFont" color="#FF0000" text="Arrows: Move far, Rewind/Play/Fast-Forward: Move/Rotate, OK: Shoot, *: Marker, Options: Peek" />
+        <Label id="message" font="font:MediumSystemFont" color="#FFFFFF" horizAlign="center" vertAlign="center" visible="false" />
     </children>
 </component>

@@ -1,7 +1,15 @@
 sub Init()
-    m.mazeWidth = 11
-    m.mazeHeight = 11
-    m.cellSize = 40
+    deviceInfo = CreateObject("roDeviceInfo")
+    screenSize = deviceInfo.GetDisplaySize()
+    m.screenWidth = screenSize.w
+    m.screenHeight = screenSize.h
+
+    ' Dynamic sizing
+    m.cellSize = m.screenWidth / 32 ' Scales maze to ~11-13 cells wide
+    m.mazeWidth = Fix(m.screenWidth / m.cellSize)
+    m.mazeHeight = Fix((m.screenHeight - m.screenHeight / 8) / m.cellSize) ' Reserve 1/8 for UI
+    if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
+    if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
     m.tank = { pos: { x: 1, y: 1 }, targetPos: { x: 1, y: 1 }, dir: "right", currentAngle: 0 }
     m.chaosMonster = invalid
@@ -15,8 +23,9 @@ sub Init()
     m.levelCleared = false
     m.level = 1
     m.showNextTimer = 0
-    m.numberTimer = 5000 ' Initial reveal per CONFIG
+    m.numberTimer = 5000
 
+    m.background = m.top.FindNode("background")
     m.mazeGroup = m.top.FindNode("mazeGroup")
     m.tankNode = m.top.FindNode("tank")
     m.chaosMonsterNode = m.top.FindNode("chaosMonster")
@@ -28,6 +37,20 @@ sub Init()
     m.instructions = m.top.FindNode("instructions")
     m.message = m.top.FindNode("message")
 
+    ' Set dynamic sizes and positions
+    m.background.width = m.screenWidth
+    m.background.height = m.screenHeight
+    mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+    mazeOffsetY = m.screenHeight / 8 ' Top 1/8 for scoreboard
+    m.mazeGroup.translation = [mazeOffsetX, mazeOffsetY]
+    m.tankNode.width = m.cellSize
+    m.tankNode.height = m.cellSize
+    m.chaosMonsterNode.width = m.cellSize
+    m.chaosMonsterNode.height = m.cellSize
+    m.scoreboard.translation = [mazeOffsetX, m.screenHeight / 16]
+    m.instructions.translation = [mazeOffsetX, m.screenHeight - m.screenHeight / 16]
+    m.message.translation = [m.screenWidth / 2, m.screenHeight / 2]
+
     LoadGameState()
     RenderMaze()
     InitLevel()
@@ -38,7 +61,7 @@ sub Init()
     m.instructionsTimer.Mark()
 
     m.timer = CreateObject("roSGNode", "Timer")
-    m.timer.duration = 1 / 30 ' 30 FPS
+    m.timer.duration = 1 / 30
     m.timer.repeat = true
     m.timer.ObserveField("fire", "OnFrameEvent")
     m.timer.control = "start"
@@ -127,8 +150,6 @@ end sub
 
 sub UpdateTankPosition()
     m.tankNode.translation = [m.tank.pos.x * m.cellSize, m.tank.pos.y * m.cellSize]
-    angles = { "up": -90, "down": 90, "left": 180, "right": 0 }
-    m.tankNode.rotation = angles[m.tank.dir] / 180 * 3.14159
 end sub
 
 sub UpdateChaosMonsterPosition()
