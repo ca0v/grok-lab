@@ -1,139 +1,227 @@
-import { Vector2D } from "./Vector2D.js"
-
-// MovementEngine.js
+import { lerpAngle } from "./fun.js";
+import { Vector2D } from "./Vector2D.js";
 export class MovementEngine {
-  constructor(game) {
-    this.game = game
-    this.DIRECTION_VECTORS = game.DIRECTION_VECTORS
-    this.CONFIG = game.CONFIG
-  }
-
-  moveFar(startPos, dir) {
-    let pos = startPos.copy()
-    const dirVec = this.DIRECTION_VECTORS[dir]
-    let fromDir
-    switch (dir) {
-      case "up":
-        fromDir = "down"
-        break
-      case "down":
-        fromDir = "up"
-        break
-      case "left":
-        fromDir = "right"
-        break
-      case "right":
-        fromDir = "left"
-        break
+    constructor(game) {
+        this.game = game;
     }
-    while (true) {
-      const nextPos = pos.add(dirVec)
-      if (!this.game.isValidMove(nextPos)) break
-      pos = nextPos
-      if (this.game.isIntersection(pos, fromDir)) break
-    }
-    return pos
-  }
-
-  updateTankDirection(newDir) {
-    if (this.game.tank.dir !== newDir) {
-      this.game.tank.dir = newDir
-      this.game.tank.rotationStart = performance.now()
-      this.game.score.moves++
-      switch (newDir) {
-        case "up":
-          this.game.tank.targetAngle = -Math.PI / 2
-          break
-        case "down":
-          this.game.tank.targetAngle = Math.PI / 2
-          break
-        case "left":
-          this.game.tank.targetAngle = Math.PI
-          break
-        case "right":
-          this.game.tank.targetAngle = 0
-          break
-      }
-    }
-  }
-
-  updateTank(deltaTime) {
-    if (!this.game.tank.pos.equals(this.game.tank.targetPos)) {
-      const dir = this.game.tank.targetPos.subtract(this.game.tank.pos)
-      const distance = dir.distanceTo(new Vector2D(0, 0))
-      const speed = this.CONFIG.TANK_SPEED * deltaTime
-      if (distance > speed) {
-        const move = dir.multiply(speed / distance)
-        this.game.tank.pos = this.game.tank.pos.add(move)
-      } else {
-        this.game.tank.pos = this.game.tank.targetPos.copy()
-        this.game.tank.ignoreCollisions = false
-      }
-    }
-
-    if (this.game.tank.rotationStart !== null) {
-      const elapsed = performance.now() - this.game.tank.rotationStart
-      if (elapsed < this.CONFIG.ROTATION_DURATION) {
-        const progress = elapsed / this.CONFIG.ROTATION_DURATION
-        this.game.tank.currentAngle +=
-          (this.game.tank.targetAngle - this.game.tank.currentAngle) * progress
-      } else {
-        this.game.tank.currentAngle = this.game.tank.targetAngle
-        this.game.tank.rotationStart = null
-      }
-    }
-  }
-
-  updateChaosMonster(deltaTime) {
-    if (this.game.chaosMonster) {
-      if (!this.game.chaosMonster.holdingTarget) {
-        if (this.game.chaosMonster.target) {
-          const dx =
-            this.game.chaosMonster.target.pos.x - this.game.chaosMonster.pos.x
-          const dy =
-            this.game.chaosMonster.target.pos.y - this.game.chaosMonster.pos.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-          if (distance > 0.001) {
-            const move = new Vector2D(dx, dy).multiply(
-              Math.min(this.game.chaosMonster.speed * deltaTime, distance) /
-                distance
-            )
-            this.game.chaosMonster.pos = this.game.chaosMonster.pos.add(move)
-          } else {
-            this.game.chaosMonster.holdingTarget = this.game.chaosMonster.target
-            this.game.chaosMonster.target = null
-          }
-        } else {
-          this.game.chaosMonster.target = this.game.findNearestTarget(
-            this.game.chaosMonster.pos
-          )
+    updateTank(deltaTime) {
+        const tank = this.game.tank;
+        const speed = this.game.CONFIG.TANK_SPEED;
+        const dx = tank.targetPos.x - tank.pos.x;
+        const dy = tank.targetPos.y - tank.pos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance > 0.01) {
+            const moveDistance = Math.min(distance, speed * deltaTime);
+            const moveX = (dx / distance) * moveDistance;
+            const moveY = (dy / distance) * moveDistance;
+            tank.pos.x += moveX;
+            tank.pos.y += moveY;
+            if (distance < speed * deltaTime * 0.5) {
+                tank.pos.x = tank.targetPos.x;
+                tank.pos.y = tank.targetPos.y;
+            }
+            // Update angle based on movement direction
+            const moveDir = Math.abs(dx) > Math.abs(dy)
+                ? dx > 0
+                    ? "right"
+                    : "left"
+                : dy > 0
+                    ? "down"
+                    : "up";
+            const currentAngle = tank.currentAngle;
+            const targetAngle = this.directionToAngle(moveDir);
+            this.updateRotation(tank, currentAngle, targetAngle, deltaTime);
         }
-      } else {
-        const dx =
-          this.game.chaosMonster.origin.x - this.game.chaosMonster.pos.x
-        const dy =
-          this.game.chaosMonster.origin.y - this.game.chaosMonster.pos.y
-        const distance = Math.sqrt(dx * dx + dy * dy)
-        if (distance > 0.001) {
-          const move = new Vector2D(dx, dy).multiply(
-            Math.min(this.game.chaosMonster.speed * deltaTime, distance) /
-              distance
-          )
-          this.game.chaosMonster.pos = this.game.chaosMonster.pos.add(move)
-        } else {
-          this.game.chaosMonster.holdingTarget.pos =
-            this.game.chaosMonster.origin.copy()
-          this.game.chaosMonster.holdingTarget = null
+        else {
+            tank.pos.x = tank.targetPos.x;
+            tank.pos.y = tank.targetPos.y;
+            // Ensure rotation completes if still animating
+            const currentAngle = tank.currentAngle;
+            const targetAngle = this.directionToAngle(tank.dir); // Use tank.dir for final angle
+            this.updateRotation(tank, currentAngle, targetAngle, deltaTime);
         }
-      }
     }
-  }
-
-  updateBullets(deltaTime) {
-    this.game.bullets = this.game.bullets.filter((b) => {
-      const dirVec = this.DIRECTION_VECTORS[b.dir]
-      b.pos = b.pos.add(dirVec.multiply(this.CONFIG.BULLET_SPEED * deltaTime))
-      return !this.game.eventHandler.checkBulletCollision(b)
-    })
-  }
+    updateChaosMonster(deltaTime) {
+        if (!this.game.chaosMonster)
+            return;
+        const chaosMonster = this.game.chaosMonster;
+        // If holding a target, move back to origin and check if hit
+        if (chaosMonster.holdingTarget) {
+            const delta = chaosMonster.origin.subtract(chaosMonster.pos);
+            const distance = delta.distanceTo(new Vector2D(0, 0));
+            if (distance > 0.1) {
+                const speed = chaosMonster.speed;
+                const moveDistance = Math.min(distance, speed * deltaTime);
+                const moveStep = delta.scale(1 / distance).scale(moveDistance);
+                chaosMonster.pos = chaosMonster.pos.add(moveStep);
+            }
+            else {
+                chaosMonster.holdingTarget.pos = chaosMonster.origin.copy();
+                chaosMonster.pos = chaosMonster.origin.copy();
+                if (chaosMonster.holdingTarget.hit) {
+                    chaosMonster.holdingTarget = null;
+                }
+            }
+        }
+        else {
+            // If not holding a target, move to the closest target
+            if (!chaosMonster.target) {
+                chaosMonster.target = this.game.findNearestTarget(chaosMonster.pos);
+                if (!chaosMonster.target) {
+                    console.log("No targets left, removing chaos monster");
+                    this.game.chaosMonster = null;
+                    return;
+                }
+            }
+            const delta = chaosMonster.target.pos.subtract(chaosMonster.pos);
+            const distance = delta.distanceTo(new Vector2D(0, 0));
+            if (distance > 0.1) {
+                const speed = chaosMonster.speed;
+                const moveDistance = Math.min(distance, speed * deltaTime);
+                const moveStep = delta.scale(1 / distance).scale(moveDistance);
+                chaosMonster.pos = chaosMonster.pos.add(moveStep);
+                console.log(`Monster moving to target: (${chaosMonster.pos.x}, ${chaosMonster.pos.y})`);
+            }
+            else {
+                chaosMonster.pos = chaosMonster.target.pos.copy();
+                chaosMonster.holdingTarget = chaosMonster.target;
+                chaosMonster.target = null;
+                console.log("Picked up target, returning to origin");
+            }
+        }
+    }
+    // Helper method to get/set maze value at a Vector2D position
+    getMazeValue(pos) {
+        const gridPos = pos.round();
+        if (gridPos.x < 0 ||
+            gridPos.x >= this.game.mazeColCount ||
+            gridPos.y < 0 ||
+            gridPos.y >= this.game.mazeRowCount) {
+            return -1; // Out of bounds indicator
+        }
+        return this.game.maze[gridPos.y][gridPos.x];
+    }
+    setMazeValue(pos, value) {
+        const gridPos = pos.round();
+        if (gridPos.x >= 0 &&
+            gridPos.x < this.game.mazeColCount &&
+            gridPos.y >= 0 &&
+            gridPos.y < this.game.mazeRowCount) {
+            this.game.maze[gridPos.y][gridPos.x] = value;
+        }
+    }
+    updateBullets(deltaTime) {
+        this.game.bullets = this.game.bullets.filter((bullet) => {
+            const dirVec = this.game.DIRECTION_VECTORS[bullet.dir];
+            const lastPos = bullet.pos.copy();
+            const moveStep = dirVec
+                .copy()
+                .scale(this.game.CONFIG.BULLET_SPEED * deltaTime);
+            bullet.pos = bullet.pos.add(moveStep);
+            const bulletGridPos = bullet.pos.round();
+            const mazeValue = this.getMazeValue(bulletGridPos);
+            if (mazeValue === -1) {
+                return false; // Bullet hits boundary, remove it
+            }
+            else if (mazeValue === 1) {
+                this.setMazeValue(bulletGridPos, 0); // Destroy wall
+                if (!bullet.lifeDeducted) {
+                    this.game.score.lives--; // Deduct one life only if not deducted before
+                    bullet.lifeDeducted = true; // Mark life as deducted
+                }
+                return false;
+            }
+            const hitTarget = this.game.targets.find((target) => {
+                if (target.hit)
+                    return false;
+                const bulletToTarget = bullet.pos.subtract(target.pos);
+                const distance = bulletToTarget.distanceTo(new Vector2D(0, 0));
+                const hitRadius = this.game.CONFIG.TARGET_RADIUS_SCALE;
+                const lastBulletToTarget = lastPos.subtract(target.pos);
+                const lastDistance = lastBulletToTarget.distanceTo(new Vector2D(0, 0));
+                const crossedTarget = (lastDistance > hitRadius && distance <= hitRadius) ||
+                    (lastDistance <= hitRadius && distance > hitRadius) ||
+                    distance <= hitRadius;
+                return crossedTarget;
+            });
+            if (hitTarget) {
+                if (hitTarget.num === this.game.currentTarget) {
+                    hitTarget.hit = true;
+                    const index = this.game.targets.indexOf(hitTarget);
+                    this.game.targets.splice(index, 1);
+                    hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
+                    this.game.score.hits++;
+                    this.game.currentTarget++;
+                }
+                else {
+                    this.game.score.lives--;
+                    hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
+                    console.log(`Miss! Hit target #${hitTarget.num}, expected #${this.game.currentTarget}`);
+                }
+                return false;
+            }
+            const hitPowerUp = this.game.powerUps.find((p) => {
+                const bulletToPowerUp = bullet.pos.subtract(p.pos);
+                const distance = bulletToPowerUp.distanceTo(new Vector2D(0, 0));
+                return (distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE && p.opacity === 1);
+            });
+            if (hitPowerUp) {
+                const index = this.game.powerUps.indexOf(hitPowerUp);
+                this.game.powerUps.splice(index, 1);
+                this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER;
+                return false;
+            }
+            return true;
+        });
+    }
+    moveFar(targetPos, dir) {
+        let newPos = targetPos.copy();
+        while (this.game.isValidMove(newPos.add(this.game.DIRECTION_VECTORS[dir]))) {
+            newPos = newPos.add(this.game.DIRECTION_VECTORS[dir]);
+            if (this.game.isIntersection(newPos, this.oppositeDirection(dir)))
+                break;
+        }
+        return newPos;
+    }
+    directionToAngle(dir) {
+        const angles = {
+            up: -Math.PI / 2,
+            down: Math.PI / 2,
+            left: Math.PI,
+            right: 0,
+        };
+        return angles[dir] || 0;
+    }
+    oppositeDirection(dir) {
+        const opposites = {
+            up: "down",
+            down: "up",
+            left: "right",
+            right: "left",
+        };
+        return opposites[dir] || dir;
+    }
+    updateTankDirection(dir) {
+        const tank = this.game.tank;
+        tank.dir = dir;
+        const currentAngle = tank.currentAngle;
+        const targetAngle = this.directionToAngle(dir);
+        if (currentAngle !== targetAngle) {
+            tank.rotationStart = performance.now(); // Start rotation animation
+        }
+    }
+    updateRotation(tank, currentAngle, targetAngle, deltaTime) {
+        if (currentAngle !== targetAngle) {
+            if (tank.rotationStart === null)
+                tank.rotationStart = performance.now();
+            const elapsed = performance.now() - tank.rotationStart;
+            const duration = this.game.CONFIG.ROTATION_DURATION;
+            const progress = Math.min(elapsed / duration, 1);
+            tank.currentAngle = lerpAngle(currentAngle, targetAngle, progress);
+            if (progress === 1) {
+                tank.rotationStart = null;
+                tank.currentAngle = targetAngle;
+            }
+        }
+    }
 }

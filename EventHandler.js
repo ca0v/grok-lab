@@ -1,222 +1,140 @@
-import { Vector2D } from "./Vector2D.js";
-
-// EventHandler.js
 export class EventHandler {
-  constructor(game) {
-    this.game = game;
-    this.CONFIG = game.CONFIG;
-    this.INPUT_MAP = game.INPUT_MAP;
-  }
-
-  initializeEventHandlers() {
-    this.game.eventHandlers = {
-      hit: () => {
-        this.game.score.hits++;
-        this.game.currentTarget++;
-        this.game.showAllTimer = 0;
-      },
-      miss: (target) => {
-        if (target) target.flashTimer = this.CONFIG.FLASH_DURATION;
-        this.game.showAllTimer = 0;
-        this.game.score.lives--;
-      },
-    };
-  }
-
-  handleInput(input) {
-    switch (input.action) {
-      case "moveFar": {
-        const pos = this.game.movementEngine.moveFar(
-          this.game.tank.targetPos,
-          input.dir
-        );
-        this.game.tank.targetPos = pos;
-        this.game.tank.ignoreCollisions = false;
-        this.game.movementEngine.updateTankDirection(input.dir);
-        this.game.score.moves++;
-        break;
-      }
-      case "moveOne": {
-        // Check if tank direction matches input direction
-        if (this.game.tank.dir !== input.dir) {
-          // Only turn if direction differs
-          this.game.movementEngine.updateTankDirection(input.dir);
-        } else {
-          // Move one cell if direction matches
-          const newPos = this.game.tank.targetPos.add(
-            this.game.DIRECTION_VECTORS[input.dir]
-          );
-          if (this.game.isValidMove(newPos)) {
-            this.game.tank.targetPos = newPos;
-            this.game.tank.ignoreCollisions = false;
-            this.game.score.moves++;
-          }
-        }
-        break;
-      }
-      case "move": {
-        if (this.game.tank.dir !== input.dir) {
-          this.game.movementEngine.updateTankDirection(input.dir);
-          this.game.lastButtonDirection = input.dir;
-        } else if (this.game.lastButtonDirection === input.dir) {
-          const pos = this.game.movementEngine.moveFar(
-            this.game.tank.targetPos,
-            input.dir
-          );
-          this.game.tank.targetPos = pos;
-          this.game.tank.dir = input.dir;
-          this.game.tank.ignoreCollisions = false;
-          this.game.score.moves++;
-        }
-        break;
-      }
-      case "shoot": {
-        let bullet = {
-          pos: this.game.tank.pos.copy().add(new Vector2D(0.5, 0.5)),
-          dir: this.game.tank.dir,
-        };
-        if (!this.checkBulletCollision(bullet)) {
-          this.game.bullets.push(bullet);
-        }
-        break;
-      }
-      case "marker": {
-        if (!this.game.marker) {
-          this.game.marker = this.game.tank.targetPos.copy();
-          this.game.score.moves++;
-        } else {
-          this.game.tank.targetPos = this.game.marker.copy();
-          this.game.tank.ignoreCollisions = true;
-          this.game.marker = null;
-          this.game.score.moves++;
-        }
-        break;
-      }
-      case "peek": {
-        this.game.showNextTimer = this.CONFIG.FLASH_DURATION;
-        this.game.score.lives--;
-        break;
-      }
+    constructor(game) {
+        this.game = game;
+        this.INPUT_MAP = this.game.INPUT_MAP;
     }
-  }
-
-  checkBulletCollision(bullet) {
-    let hitTarget = false;
-    const bulletGrid = new Vector2D(
-      Math.floor(bullet.pos.x),
-      Math.floor(bullet.pos.y)
-    );
-
-    for (const t of this.game.targets) {
-      if (
-        !t.hit &&
-        bulletGrid.equals(t.pos) &&
-        t.num === this.game.currentTarget
-      ) {
-        t.hit = true;
-        this.game.eventHandlers.hit();
-        return true;
-      }
-    }
-
-    this.game.targets.forEach((t) => {
-      if (!t.hit && bulletGrid.equals(t.pos)) {
-        hitTarget = true;
-        this.game.eventHandlers.miss(t);
-      }
-    });
-
-    if (
-      this.game.powerUps.some(
-        (p) => bulletGrid.equals(p.pos) && p.opacity === 1
-      )
-    ) {
-      this.game.showAllTimer = this.CONFIG.POWER_UP_REVEAL_DURATION;
-      this.game.powerUps = this.game.powerUps.filter(
-        (p) => !(bulletGrid.equals(p.pos) && p.opacity === 1)
-      );
-      if (this.game.powerUps.length)
-        this.game.powerUps.at(-1).revealStart = performance.now();
-      hitTarget = true;
-    }
-
-    if (!hitTarget) {
-      if (
-        bulletGrid.x >= 0 &&
-        bulletGrid.x < this.game.mazeWidth &&
-        bulletGrid.y >= 0 &&
-        bulletGrid.y < this.game.mazeHeight
-      ) {
-        if (this.game.maze[bulletGrid.y][bulletGrid.x] === 1) {
-          this.game.maze[bulletGrid.y][bulletGrid.x] = 0;
-          this.game.eventHandlers.miss();
-          hitTarget = true;
-        }
-      } else {
-        this.game.eventHandlers.miss();
-        hitTarget = true;
-      }
-    }
-    return hitTarget;
-  }
-
-  setupInputHandlers() {
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "r") {
-        this.game.clearGameState();
-        this.game.level = 1;
-        this.game.score.total = 0;
-        this.game.score.hits = 0;
-        this.game.resetLevel();
-        return;
-      }
-      if (this.game.gameOver || this.game.levelCleared) return;
-      if (this.game.keysPressed[e.key]) return;
-      this.game.keysPressed[e.key] = true;
-
-      const input =
-        this.INPUT_MAP[e.key.toLowerCase()] || this.INPUT_MAP[e.key];
-      if (input) {
-        e.preventDefault();
-        if (
-          this.game.showNumbers &&
-          this.game.numberTimer > 0 &&
-          input.action !== "shoot"
-        ) {
-          this.game.showNumbers = false;
-          this.game.numberTimer = 0;
-          return;
-        }
-        this.handleInput(input);
-      }
-    });
-
-    document.addEventListener("keyup", (e) => {
-      this.game.keysPressed[e.key] = false;
-    });
-
-    Object.keys(this.INPUT_MAP).forEach((id) => {
-      const button = document.getElementById(id);
-      if (button && id !== "shoot") {
-        const handleStart = (e) => {
-          if (this.game.gameOver || this.game.levelCleared) return;
-          e.preventDefault();
-          if (
-            this.game.showNumbers &&
-            this.game.numberTimer > 0 &&
-            this.INPUT_MAP[id].action !== "shoot"
-          ) {
-            this.game.showNumbers = false;
-            this.game.numberTimer = 0;
+    initializeEventHandlers() {
+        const controls = document.getElementById("controls");
+        if (!controls)
             return;
-          }
-          this.handleInput(this.INPUT_MAP[id]);
-        };
-        button.addEventListener("mousedown", handleStart);
-        button.addEventListener("touchstart", handleStart);
-        button.addEventListener("mouseup", (e) => e.preventDefault());
-        button.addEventListener("touchend", (e) => e.preventDefault());
-      }
-    });
-  }
+        controls
+            .querySelectorAll(".control-btn")
+            .forEach((btn) => {
+            btn.addEventListener("mousedown", () => {
+                const direction = btn.dataset.direction;
+                if (direction)
+                    this.handleInput({ action: "move", dir: direction });
+            });
+        });
+    }
+    setupInputHandlers() {
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "r") {
+                this.game.clearGameState();
+                this.game.level = 1;
+                this.game.score.total = 0;
+                this.game.score.hits = 0;
+                this.game.resetLevel();
+                return;
+            }
+            if (this.game.gameOver || this.game.levelCleared)
+                return;
+            if (this.game.keysPressed[e.key])
+                return;
+            this.game.keysPressed[e.key] = true;
+            const input = this.INPUT_MAP[e.key.toLowerCase()] ||
+                this.INPUT_MAP[e.key];
+            if (input) {
+                e.preventDefault();
+                this.handleInput(input);
+                // Hide numbers after handling input, if applicable
+                this.game.numberTimer = 0;
+            }
+        });
+        document.addEventListener("keyup", (e) => {
+            this.game.keysPressed[e.key] = false;
+        });
+        const controls = document.getElementById("controls");
+        if (!controls)
+            return;
+        controls
+            .querySelectorAll(".control-btn")
+            .forEach((btn) => {
+            btn.addEventListener("mousedown", () => {
+                const direction = btn.dataset.direction;
+                if (direction) {
+                    this.game.lastButtonDirection = direction;
+                    this.handleInput({ action: "move", dir: direction });
+                }
+            });
+            btn.addEventListener("mouseup", () => {
+                this.game.lastButtonDirection = null;
+            });
+            btn.addEventListener("mouseleave", () => {
+                this.game.lastButtonDirection = null;
+            });
+            btn.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                const direction = btn.dataset.direction;
+                if (direction) {
+                    this.game.lastButtonDirection = direction;
+                    this.handleInput({ action: "move", dir: direction });
+                }
+            });
+            btn.addEventListener("touchend", () => {
+                this.game.lastButtonDirection = null;
+            });
+            btn.addEventListener("touchcancel", () => {
+                this.game.lastButtonDirection = null;
+            });
+        });
+    }
+    handleInput(input) {
+        const tank = this.game.tank;
+        if (this.game.gameOver || this.game.levelCleared)
+            return;
+        switch (input.action) {
+            case "moveFar":
+                if (input.dir) {
+                    tank.targetPos = this.game.movementEngine.moveFar(tank.targetPos, input.dir);
+                    tank.ignoreCollisions = false;
+                    this.game.score.moves++;
+                    this.game.movementEngine.updateTankDirection(input.dir);
+                }
+                break;
+            case "moveOne":
+                if (input.dir) {
+                    // If tank isn't facing the input direction, rotate only
+                    if (tank.dir !== input.dir) {
+                        this.game.movementEngine.updateTankDirection(input.dir);
+                    }
+                    else {
+                        // Tank is facing the right direction, move one cell
+                        const newPos = tank.targetPos.add(this.game.DIRECTION_VECTORS[input.dir]);
+                        if (this.game.isValidMove(newPos)) {
+                            tank.targetPos = newPos;
+                            tank.ignoreCollisions = false;
+                            this.game.score.moves++;
+                        }
+                    }
+                }
+                break;
+            case "shoot":
+                // Calculate bullet origin at the neighboring cell (barrel tip)
+                const dirVec = this.game.DIRECTION_VECTORS[tank.dir];
+                const bulletOrigin = tank.pos.copy();
+                this.game.bullets.push({
+                    pos: bulletOrigin,
+                    dir: tank.dir,
+                    lifeDeducted: false,
+                });
+                break;
+            case "marker":
+                if (!this.game.marker) {
+                    // If there is no marker, create one at the tank's position
+                    this.game.marker = tank.pos.copy();
+                }
+                else {
+                    // If there is a marker, move the tank to it and remove the marker
+                    tank.targetPos = this.game.marker.copy();
+                    this.game.marker = null; // Remove the marker
+                }
+                break;
+            case "peek":
+                if (this.game.showAllTimer <= 0 && this.game.showNextTimer <= 0) {
+                    this.game.showNextTimer = this.game.CONFIG.POWER_UP_REVEAL_DURATION;
+                }
+                break;
+        }
+    }
 }
