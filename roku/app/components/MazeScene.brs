@@ -65,6 +65,7 @@ sub Init()
     print "PowerUpsGroup: "; m.powerUpsGroup <> invalid
     m.markerNode = m.top.FindNode("marker")
     print "Marker: "; m.markerNode <> invalid
+    m.markerNode.text = "X" ' Reinforce initial text
     m.scoreboard = m.top.FindNode("scoreboard")
     print "Scoreboard: "; m.scoreboard <> invalid
     m.instructions = m.top.FindNode("instructions")
@@ -236,7 +237,6 @@ sub UpdateTankPosition()
     ' Rotate to match pixel map "up" as base
     dirAngles = { "up": 0, "right": 270, "down": 180, "left": 90 }
     m.tankNode.rotation = dirAngles[m.tank.dir] * 3.14159 / 180 ' Degrees to radians
-    print "Tank position: "; m.tank.pos.x; ","; m.tank.pos.y; " translated to: "; m.tankNode.translation[0]; ","; m.tankNode.translation[1]; " rotation: "; m.tankNode.rotation
 end sub
 
 sub UpdateChaosMonsterPosition()
@@ -396,8 +396,8 @@ function OnKeyEvent(key as string, press as boolean) as boolean
         "fastforward": { action: "rotateCW" }, ' Changed from moveOne right
         "OK": { action: "shoot" },
         "back": { action: "reset" },
-        "*": { action: "marker" },
-        "options": { action: "peek" }
+        "replay": { action: "marker" },
+        "options": { action: "marker" }
     }
     input = inputMap[key]
     if input <> invalid
@@ -458,16 +458,21 @@ sub HandleInput(input as object)
         m.bullets.Push({ pos: { x: tank.pos.x, y: tank.pos.y }, dir: tank.dir, node: bullet, lifeDeducted: false })
         print "Bullet spawned at: "; bullet.translation[0]; ","; bullet.translation[1]
     else if input.action = "marker"
+        mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
+        mazeOffsetY = m.screenHeight / 8
         if m.marker = invalid
             m.marker = { x: tank.pos.x, y: tank.pos.y }
-            m.markerNode.translation = [m.marker.x * m.cellSize + m.cellSize * 0.2, m.marker.y * m.cellSize + m.cellSize * 0.2]
+            m.markerNode.translation = [m.marker.x * m.cellSize + mazeOffsetX + m.cellSize * 0.2, m.marker.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
+            m.markerNode.text = "X" ' Ensure text is set
             m.markerNode.visible = true
+            print "Marker placed at: "; m.markerNode.translation[0]; ","; m.markerNode.translation[1]
         else
             tank.targetPos = m.marker
             tank.pos = m.marker
             m.marker = invalid
             m.markerNode.visible = false
             UpdateTankPosition()
+            print "Tank moved to marker"
         end if
     else if input.action = "peek"
         if m.showNextTimer <= 0 and m.numberTimer <= 0
@@ -756,13 +761,13 @@ end function
 sub BuildSprite(container as object, pixelMap as object, size as float)
     if container = invalid or type(container) <> "roSGNode" or pixelMap = invalid or pixelMap.Count() = 0 then return
     ClearChildren(container)
-    
+
     rows = pixelMap.Count()
     columns = pixelMap[0].Len()
     for each row in pixelMap
         if row.Len() <> columns then return ' Invalid map
     end for
-    
+
     pixelSize = Fix(size / columns) ' Integer size to avoid anti-aliasing
     if pixelSize < 1 then pixelSize = 1 ' Minimum size to ensure visibility
     spriteSize = pixelSize * columns ' Actual sprite size may differ from requested
