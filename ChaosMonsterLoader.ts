@@ -1,7 +1,7 @@
 // ChaosMonsterLoader.ts
 import { Vector2D } from "./Vector2D.js";
 import type { MazeMemoryGame } from "./maze-memory.js";
-import type { ChaosMonster, Target, ICharacterLoader } from "./Types.js";
+import type { ChaosMonster, ICharacterLoader } from "./Types.js";
 
 export class ChaosMonsterLoader implements ICharacterLoader {
   load(game: MazeMemoryGame) {
@@ -11,6 +11,7 @@ export class ChaosMonsterLoader implements ICharacterLoader {
         (game.level - 1) / game.CONFIG.LEVELS_PER_CYCLE
       );
       const chaosMonster: ChaosMonster = {
+        type: "chaosMonster",
         pos: monsterPos.copy(),
         origin: monsterPos.copy(),
         speed: game.CONFIG.CHAOS_MONSTER_SPEED + difficulty,

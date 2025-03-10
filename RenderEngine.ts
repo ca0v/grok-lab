@@ -1,6 +1,6 @@
 import type { CONFIG } from "./config.js";
 import type { MazeMemoryGame } from "./maze-memory.js";
-import { ChaosMonster } from "./Types.js";
+import { ChaosMonster, PowerUp } from "./Types.js";
 
 export class RenderEngine {
   game: MazeMemoryGame;
@@ -16,14 +16,47 @@ export class RenderEngine {
   draw() {
     this.ctx.clearRect(0, 0, this.game.canvas.width, this.game.canvas.height);
     this.drawMaze();
-    this.drawPowerUp();
     this.drawBullets();
     this.drawTargets();
-    this.drawChaosMonster();
+    this.drawCharacters(); // Replaces drawChaosMonster and drawPowerUp
     this.drawTank();
     this.drawMarker();
     this.drawScoreboard();
     this.drawMessages();
+  }
+
+  drawCharacters() {
+    this.game.castOfCharacters.forEach((character) => {
+      this.ctx.save();
+      this.ctx.translate(
+        character.pos.x * this.game.cellSize + this.game.cellSize / 2,
+        character.pos.y * this.game.cellSize +
+          this.game.cellSize / 2 +
+          this.game.topBorderSize
+      );
+
+      switch (character.type) {
+        case "chaosMonster":
+          const radius =
+            (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+          this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+          this.ctx.fill();
+          break;
+        case "powerUp":
+          const powerUp = character as PowerUp;
+          const powerUpRadius =
+            (this.game.cellSize / 2) * this.CONFIG.POWER_UP_RADIUS_SCALE;
+          this.ctx.fillStyle = `rgba(255, 255, 0, ${powerUp.opacity})`;
+          this.ctx.beginPath();
+          this.ctx.arc(0, 0, powerUpRadius, 0, Math.PI * 2);
+          this.ctx.fill();
+          break;
+      }
+
+      this.ctx.restore();
+    });
   }
 
   drawMaze() {
@@ -148,45 +181,6 @@ export class RenderEngine {
     });
   }
 
-  drawChaosMonster() {
-    this.game.castOfCharacters.forEach(character => {
-      if ((character as ChaosMonster).origin) { // Check if it's a ChaosMonster
-        this.ctx.save();
-        this.ctx.translate(
-          character.pos.x * this.game.cellSize + this.game.cellSize / 2,
-          character.pos.y * this.game.cellSize +
-            this.game.cellSize / 2 +
-            this.game.topBorderSize
-        );
-        const radius = (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
-        this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.restore();
-      }
-    });
-  }
-
-  drawPowerUp() {
-    this.game.powerUps.forEach((p) => {
-      const radius =
-        (this.game.cellSize / 2) * this.CONFIG.POWER_UP_RADIUS_SCALE;
-      this.ctx.fillStyle = `rgba(255, 255, 0, ${p.opacity})`;
-      this.ctx.beginPath();
-      this.ctx.arc(
-        p.pos.x * this.game.cellSize + this.game.cellSize / 2,
-        p.pos.y * this.game.cellSize +
-          this.game.cellSize / 2 +
-          this.game.topBorderSize,
-        radius,
-        0,
-        Math.PI * 2
-      );
-      this.ctx.fill();
-    });
-  }
-
   drawBullets() {
     this.game.bullets.forEach((bullet) => {
       this.ctx.fillStyle = this.CONFIG.BULLET_COLOR;
@@ -249,13 +243,13 @@ export class RenderEngine {
     this.ctx.textAlign = "left";
     this.ctx.textBaseline = "top";
 
-    const circleRadius = fontSize / 3; // Circle size based on font size
+    const circleRadius = fontSize / 3;
 
     const livesCount = this.game.score.lives;
-    this.ctx.fillStyle = this.CONFIG.LIFE_COLOR; // e.g., "blue"
+    this.ctx.fillStyle = this.CONFIG.LIFE_COLOR;
     for (let i = 0; i < livesCount; i++) {
-      const x = this.col(0.5 * (1 + i)); // Col 0 to 2
-      const y = this.row(0.5); // Row 0
+      const x = this.col(0.5 * (1 + i));
+      const y = this.row(0.5);
       this.ctx.beginPath();
       this.ctx.arc(
         x + circleRadius,
@@ -267,7 +261,9 @@ export class RenderEngine {
       this.ctx.fill();
     }
 
-    const powerUpCount = this.game.powerUps.length;
+    const powerUpCount = this.game.castOfCharacters.filter(
+      (character) => character.type === "powerUp"
+    ).length;
     this.ctx.fillStyle = this.CONFIG.POWER_UP_COLOR; // e.g., "yellow"
     for (let i = 0; i < powerUpCount; i++) {
       const x = this.col(0.5 * (1 + i)); // Col 0 to 2

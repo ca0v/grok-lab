@@ -5,7 +5,7 @@ import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
 import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
 import { clamp, range } from "./fun.js";
-import {
+import type {
   Tank,
   ChaosMonster,
   Target,
@@ -16,6 +16,7 @@ import {
   ICharacterLoader,
 } from "./Types.js";
 import { ChaosMonsterLoader } from "./ChaosMonsterLoader.js";
+import { PowerUpLoader } from "./PowerUpLoader.js";
 
 export class MazeMemoryGame {
   CONFIG = CONFIG;
@@ -35,10 +36,8 @@ export class MazeMemoryGame {
 
   maze: number[][];
   tank: Tank;
-  chaosMonster: ChaosMonster | null;
   targets: Target[];
   bullets: Bullet[];
-  powerUps: PowerUp[];
   currentTarget: number;
   numberTimer: number;
   keysPressed: { [key: string]: boolean };
@@ -56,7 +55,6 @@ export class MazeMemoryGame {
   maxTargets: number;
   lastTime: number;
   accumulatedTime: number;
-
   characterLoaders: ICharacterLoader[] = [];
   castOfCharacters: Character[] = [];
 
@@ -64,7 +62,6 @@ export class MazeMemoryGame {
     this.initializeCanvas();
     this.initializeGameState();
     this.loadGameState();
-
     this.initializeGameConstants();
 
     this.movementEngine = new MovementEngine(this);
@@ -78,7 +75,6 @@ export class MazeMemoryGame {
     this.accumulatedTime = 0;
 
     const joystickContainer = document.getElementById("joystick-container");
-
     if (this.CONFIG.DEVICE_FLAG.isTouchSupported) {
       joystickContainer!.style.display = "flex";
       this.setupGestureEngine();
@@ -91,6 +87,8 @@ export class MazeMemoryGame {
     }
 
     this.registerCharacterLoader(new ChaosMonsterLoader());
+    this.registerCharacterLoader(new PowerUpLoader());
+
     this.resetLevel(true);
     this.gameLoop();
   }
@@ -102,61 +100,6 @@ export class MazeMemoryGame {
   addCastOfCharacters() {
     this.castOfCharacters = [];
     this.characterLoaders.forEach((loader) => loader.load(this));
-  }
-
-  chaosMonsterCharacterLoader(game: MazeMemoryGame) {
-    if (game.level >= game.CONFIG.CHAOS_MONSTER_START_LEVEL) {
-      const monsterPos = game.getRandomOpenPosition();
-      const difficulty = Math.floor(
-        (game.level - 1) / game.CONFIG.LEVELS_PER_CYCLE
-      );
-      const chaosMonster: ChaosMonster = {
-        pos: monsterPos.copy(),
-        origin: monsterPos.copy(),
-        speed: game.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
-        holdingTarget: null,
-        target: null,
-        update(deltaTime: number) {
-          if (this.holdingTarget) {
-            const delta = this.origin.subtract(this.pos);
-            const distance = delta.distanceTo(new Vector2D(0, 0));
-            if (distance > 0.1) {
-              const moveDistance = Math.min(distance, this.speed * deltaTime);
-              const moveStep = delta.scale(1 / distance).scale(moveDistance);
-              this.pos = this.pos.add(moveStep);
-            } else {
-              this.pos = this.origin.copy();
-              if (this.holdingTarget.hit) {
-                this.holdingTarget = null;
-              } else {
-                this.holdingTarget.pos = this.origin.copy();
-              }
-            }
-          } else if (!this.target) {
-            this.target = game.findNearestTarget(this.pos);
-            if (!this.target) {
-              const index = game.castOfCharacters.indexOf(this);
-              if (index !== -1) game.castOfCharacters.splice(index, 1);
-              return;
-            }
-          } else {
-            const delta = this.target.pos.subtract(this.pos);
-            const distance = delta.distanceTo(new Vector2D(0, 0));
-            if (distance > 0.1) {
-              const moveDistance = Math.min(distance, this.speed * deltaTime);
-              const moveStep = delta.scale(1 / distance).scale(moveDistance);
-              this.pos = this.pos.add(moveStep);
-            } else {
-              this.pos = this.target.pos.copy();
-              this.holdingTarget = this.target;
-              this.target = null;
-            }
-          }
-        },
-      };
-      game.castOfCharacters.push(chaosMonster);
-      chaosMonster.target = game.findNearestTarget(chaosMonster.pos);
-    }
   }
 
   setupGestureEngine() {
@@ -226,10 +169,8 @@ export class MazeMemoryGame {
       rotationStart: null,
       ignoreCollisions: false,
     };
-    this.chaosMonster = null;
     this.targets = [];
     this.bullets = [];
-    this.powerUps = [];
     this.currentTarget = 1;
     this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.keysPressed = {};
@@ -289,31 +230,6 @@ export class MazeMemoryGame {
     }
 
     this.bullets = [];
-    // Power-up logic...
-    if (this.level < this.CONFIG.POWER_UP_START_LEVEL) {
-      this.powerUps = [];
-    } else {
-      const powerUpCount = Math.min(
-        Math.floor(
-          (this.level - this.CONFIG.POWER_UP_START_LEVEL) /
-            this.CONFIG.LEVELS_PER_CYCLE
-        ),
-        this.CONFIG.MAX_POWER_UP_COUNT
-      );
-      this.powerUps = range(powerUpCount).map(() => {
-        let pos;
-        do {
-          pos = this.getRandomOpenPosition();
-        } while (
-          this.targets.some((t) => t.pos.equals(pos)) ||
-          pos.equals(this.tank.pos) ||
-          this.castOfCharacters.some((c) => c.pos.equals(pos)) ||
-          this.powerUps.some((p) => p.pos.equals(pos))
-        );
-        return { pos: pos, opacity: 0, revealStart: performance.now() };
-      });
-    }
-
     this.currentTarget = 1;
     this.numberTimer = this.CONFIG.INITIAL_NUMBER_TIMER;
     this.marker = null;
@@ -322,7 +238,6 @@ export class MazeMemoryGame {
       this.score.lives = this.CONFIG.MAX_MISSES;
       this.score.total = 0;
       this.score.hits = 0;
-      this.powerUps = [];
     } else if (this.levelCleared && !restartSameLevel) {
       this.score.lives = Math.min(this.score.lives + 1, this.CONFIG.MAX_MISSES);
       const moveBonus = Math.max(0, 100 - this.score.moves * 2);
@@ -555,21 +470,8 @@ export class MazeMemoryGame {
 
     if (!this.gameOver) {
       this.movementEngine.updateTank(deltaTime);
-      this.movementEngine.updateCharacters(deltaTime); // Generalized update
+      this.movementEngine.updateCharacters(deltaTime);
       this.movementEngine.updateBullets(deltaTime);
-
-      this.powerUps.forEach((p) => {
-        if (p.revealStart !== null) {
-          const elapsed = performance.now() - p.revealStart;
-          const duration = 1000;
-          if (elapsed < duration) {
-            p.opacity = Math.min(1, elapsed / duration);
-          } else {
-            p.opacity = 1;
-            p.revealStart = null;
-          }
-        }
-      });
 
       this.targets.forEach((t) => {
         if (t.flashTimer > 0) {

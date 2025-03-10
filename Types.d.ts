@@ -26,8 +26,15 @@ export interface Tank {
 
 export interface Character {
   pos: Vector2D;
+  type: string;
   update(deltaTime: number): void;
   onBulletHit?(bullet: Bullet): boolean; // Optional: returns true if bullet should be destroyed
+}
+
+export interface PowerUp extends Character {
+  type: "powerUp";
+  opacity: number;
+  revealStart: number | null;
 }
 
 /**
@@ -38,6 +45,7 @@ export interface Character {
  * @property {any} target - The target the chaos monster is currently pursuing (type to be refined based on target structure).
  */
 export interface ChaosMonster extends Character {
+  type: "chaosMonster";
   origin: Vector2D;
   speed: number;
   holdingTarget: Target | null;

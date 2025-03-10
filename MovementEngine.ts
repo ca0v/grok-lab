@@ -51,60 +51,6 @@ export class MovementEngine {
     }
   }
 
-  updateChaosMonster(deltaTime: number) {
-    if (!this.game.chaosMonster) return;
-
-    const chaosMonster = this.game.chaosMonster;
-
-    // If holding a target, move back to origin and check if hit
-    if (chaosMonster.holdingTarget) {
-      const delta = chaosMonster.origin.subtract(chaosMonster.pos);
-      const distance = delta.distanceTo(new Vector2D(0, 0));
-
-      if (distance > 0.1) {
-        const speed = chaosMonster.speed;
-        const moveDistance = Math.min(distance, speed * deltaTime);
-        const moveStep = delta.scale(1 / distance).scale(moveDistance);
-        chaosMonster.pos = chaosMonster.pos.add(moveStep);
-      } else {
-        chaosMonster.holdingTarget.pos = chaosMonster.origin.copy();
-        chaosMonster.pos = chaosMonster.origin.copy();
-
-        if (chaosMonster.holdingTarget.hit) {
-          chaosMonster.holdingTarget = null;
-        }
-      }
-    } else {
-      // If not holding a target, move to the closest target
-      if (!chaosMonster.target) {
-        chaosMonster.target = this.game.findNearestTarget(chaosMonster.pos);
-        if (!chaosMonster.target) {
-          console.log("No targets left, removing chaos monster");
-          this.game.chaosMonster = null;
-          return;
-        }
-      }
-
-      const delta = chaosMonster.target.pos.subtract(chaosMonster.pos);
-      const distance = delta.distanceTo(new Vector2D(0, 0));
-
-      if (distance > 0.1) {
-        const speed = chaosMonster.speed;
-        const moveDistance = Math.min(distance, speed * deltaTime);
-        const moveStep = delta.scale(1 / distance).scale(moveDistance);
-        chaosMonster.pos = chaosMonster.pos.add(moveStep);
-        console.log(
-          `Monster moving to target: (${chaosMonster.pos.x}, ${chaosMonster.pos.y})`
-        );
-      } else {
-        chaosMonster.pos = chaosMonster.target.pos.copy();
-        chaosMonster.holdingTarget = chaosMonster.target;
-        chaosMonster.target = null;
-        console.log("Picked up target, returning to origin");
-      }
-    }
-  }
-
   // Helper method to get/set maze value at a Vector2D position
   private getMazeValue(pos: Vector2D): number {
     const gridPos = pos.round();
@@ -152,7 +98,7 @@ export class MovementEngine {
       const bulletGridPos = bullet.pos.round();
       const mazeValue = this.getMazeValue(bulletGridPos);
       if (mazeValue === -1) {
-        return false; // Bullet hits boundary
+        return false;
       } else if (mazeValue === 1) {
         this.setMazeValue(bulletGridPos, 0);
         if (!bullet.lifeDeducted) {
@@ -162,19 +108,17 @@ export class MovementEngine {
         return false;
       }
 
-      // Check character collisions
       for (const character of this.game.castOfCharacters) {
         const distance = bullet.pos.distanceTo(character.pos);
-        const hitRadius = this.game.CONFIG.TANK_RADIUS_SCALE; // Adjust as needed
+        const hitRadius = this.game.CONFIG.TANK_RADIUS_SCALE; // Adjust if needed
         if (distance <= hitRadius) {
           if (character.onBulletHit) {
             return character.onBulletHit(bullet);
           }
-          return true; // Default: bullet continues
+          return true;
         }
       }
 
-      // Existing target and power-up collision logic...
       const hitTarget = this.game.targets.find((target) => {
         if (target.hit) return false;
         const bulletToTarget = bullet.pos.subtract(target.pos);
@@ -200,25 +144,7 @@ export class MovementEngine {
         } else {
           this.game.score.lives--;
           hitTarget.flashTimer = this.game.CONFIG.FLASH_DURATION;
-          console.log(
-            `Miss! Hit target #${hitTarget.num}, expected #${this.game.currentTarget}`
-          );
         }
-        return false;
-      }
-
-      const hitPowerUp = this.game.powerUps.find((p) => {
-        const bulletToPowerUp = bullet.pos.subtract(p.pos);
-        const distance = bulletToPowerUp.distanceTo(new Vector2D(0, 0));
-        return (
-          distance < this.game.CONFIG.POWER_UP_RADIUS_SCALE && p.opacity === 1
-        );
-      });
-
-      if (hitPowerUp) {
-        const index = this.game.powerUps.indexOf(hitPowerUp);
-        this.game.powerUps.splice(index, 1);
-        this.game.numberTimer = this.game.CONFIG.INITIAL_NUMBER_TIMER;
         return false;
       }
 
