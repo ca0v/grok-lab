@@ -1,5 +1,6 @@
 import type { CONFIG } from "./config.js";
 import type { MazeMemoryGame } from "./maze-memory.js";
+import { ChaosMonster } from "./Types.js";
 
 export class RenderEngine {
   game: MazeMemoryGame;
@@ -148,23 +149,23 @@ export class RenderEngine {
   }
 
   drawChaosMonster() {
-    if (this.game.chaosMonster) {
-      this.ctx.save();
-      this.ctx.translate(
-        this.game.chaosMonster.pos.x * this.game.cellSize +
-          this.game.cellSize / 2,
-        this.game.chaosMonster.pos.y * this.game.cellSize +
-          this.game.cellSize / 2 +
-          this.game.topBorderSize
-      );
-
-      const radius = (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
-      this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
-      this.ctx.beginPath();
-      this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
-      this.ctx.fill();
-      this.ctx.restore();
-    }
+    this.game.castOfCharacters.forEach(character => {
+      if ((character as ChaosMonster).origin) { // Check if it's a ChaosMonster
+        this.ctx.save();
+        this.ctx.translate(
+          character.pos.x * this.game.cellSize + this.game.cellSize / 2,
+          character.pos.y * this.game.cellSize +
+            this.game.cellSize / 2 +
+            this.game.topBorderSize
+        );
+        const radius = (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
+        this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+      }
+    });
   }
 
   drawPowerUp() {

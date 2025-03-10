@@ -131,6 +131,12 @@ export class MovementEngine {
     }
   }
 
+  updateCharacters(deltaTime: number) {
+    this.game.castOfCharacters.forEach((character) => {
+      character.update(deltaTime, this.game);
+    });
+  }
+
   updateBullets(deltaTime: number) {
     this.game.bullets = this.game.bullets.filter((bullet) => {
       const dirVec =
@@ -146,29 +152,40 @@ export class MovementEngine {
       const bulletGridPos = bullet.pos.round();
       const mazeValue = this.getMazeValue(bulletGridPos);
       if (mazeValue === -1) {
-        return false; // Bullet hits boundary, remove it
+        return false; // Bullet hits boundary
       } else if (mazeValue === 1) {
-        this.setMazeValue(bulletGridPos, 0); // Destroy wall
+        this.setMazeValue(bulletGridPos, 0);
         if (!bullet.lifeDeducted) {
-          this.game.score.lives--; // Deduct one life only if not deducted before
-          bullet.lifeDeducted = true; // Mark life as deducted
+          this.game.score.lives--;
+          bullet.lifeDeducted = true;
         }
         return false;
       }
 
+      // Check character collisions
+      for (const character of this.game.castOfCharacters) {
+        const distance = bullet.pos.distanceTo(character.pos);
+        const hitRadius = this.game.CONFIG.TANK_RADIUS_SCALE; // Adjust as needed
+        if (distance <= hitRadius) {
+          if (character.onBulletHit) {
+            return character.onBulletHit(bullet);
+          }
+          return true; // Default: bullet continues
+        }
+      }
+
+      // Existing target and power-up collision logic...
       const hitTarget = this.game.targets.find((target) => {
         if (target.hit) return false;
         const bulletToTarget = bullet.pos.subtract(target.pos);
         const distance = bulletToTarget.distanceTo(new Vector2D(0, 0));
         const hitRadius = this.game.CONFIG.TARGET_RADIUS_SCALE;
-
         const lastBulletToTarget = lastPos.subtract(target.pos);
         const lastDistance = lastBulletToTarget.distanceTo(new Vector2D(0, 0));
         const crossedTarget =
           (lastDistance > hitRadius && distance <= hitRadius) ||
           (lastDistance <= hitRadius && distance > hitRadius) ||
           distance <= hitRadius;
-
         return crossedTarget;
       });
 

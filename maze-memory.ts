@@ -5,7 +5,17 @@ import { RenderEngine } from "./RenderEngine.js";
 import { EventHandler } from "./EventHandler.js";
 import { CONFIG, INPUT_MAP, DIRECTION_VECTORS } from "./config.js";
 import { clamp, range } from "./fun.js";
-import { Tank, ChaosMonster, Target, Bullet, PowerUp, Score } from "./Types.js";
+import {
+  Tank,
+  ChaosMonster,
+  Target,
+  Bullet,
+  PowerUp,
+  Score,
+  Character,
+  ICharacterLoader,
+} from "./Types.js";
+import { ChaosMonsterLoader } from "./ChaosMonsterLoader.js";
 
 export class MazeMemoryGame {
   CONFIG = CONFIG;
@@ -47,6 +57,9 @@ export class MazeMemoryGame {
   lastTime: number;
   accumulatedTime: number;
 
+  characterLoaders: ICharacterLoader[] = [];
+  castOfCharacters: Character[] = [];
+
   constructor() {
     this.initializeCanvas();
     this.initializeGameState();
@@ -77,8 +90,73 @@ export class MazeMemoryGame {
       joystickContainer!.style.display = "none";
     }
 
+    this.registerCharacterLoader(new ChaosMonsterLoader());
     this.resetLevel(true);
     this.gameLoop();
+  }
+
+  registerCharacterLoader(loader: ICharacterLoader) {
+    this.characterLoaders.push(loader);
+  }
+
+  addCastOfCharacters() {
+    this.castOfCharacters = [];
+    this.characterLoaders.forEach((loader) => loader.load(this));
+  }
+
+  chaosMonsterCharacterLoader(game: MazeMemoryGame) {
+    if (game.level >= game.CONFIG.CHAOS_MONSTER_START_LEVEL) {
+      const monsterPos = game.getRandomOpenPosition();
+      const difficulty = Math.floor(
+        (game.level - 1) / game.CONFIG.LEVELS_PER_CYCLE
+      );
+      const chaosMonster: ChaosMonster = {
+        pos: monsterPos.copy(),
+        origin: monsterPos.copy(),
+        speed: game.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
+        holdingTarget: null,
+        target: null,
+        update(deltaTime: number, game: MazeMemoryGame) {
+          if (this.holdingTarget) {
+            const delta = this.origin.subtract(this.pos);
+            const distance = delta.distanceTo(new Vector2D(0, 0));
+            if (distance > 0.1) {
+              const moveDistance = Math.min(distance, this.speed * deltaTime);
+              const moveStep = delta.scale(1 / distance).scale(moveDistance);
+              this.pos = this.pos.add(moveStep);
+            } else {
+              this.pos = this.origin.copy();
+              if (this.holdingTarget.hit) {
+                this.holdingTarget = null;
+              } else {
+                this.holdingTarget.pos = this.origin.copy();
+              }
+            }
+          } else if (!this.target) {
+            this.target = game.findNearestTarget(this.pos);
+            if (!this.target) {
+              const index = game.castOfCharacters.indexOf(this);
+              if (index !== -1) game.castOfCharacters.splice(index, 1);
+              return;
+            }
+          } else {
+            const delta = this.target.pos.subtract(this.pos);
+            const distance = delta.distanceTo(new Vector2D(0, 0));
+            if (distance > 0.1) {
+              const moveDistance = Math.min(distance, this.speed * deltaTime);
+              const moveStep = delta.scale(1 / distance).scale(moveDistance);
+              this.pos = this.pos.add(moveStep);
+            } else {
+              this.pos = this.target.pos.copy();
+              this.holdingTarget = this.target;
+              this.target = null;
+            }
+          }
+        },
+      };
+      game.castOfCharacters.push(chaosMonster);
+      chaosMonster.target = game.findNearestTarget(chaosMonster.pos);
+    }
   }
 
   setupGestureEngine() {
@@ -180,24 +258,12 @@ export class MazeMemoryGame {
       levelCycle + Math.floor((this.level - 1) / this.CONFIG.LEVELS_PER_CYCLE);
 
     this.updateCanvasSize();
-
     this.maze = this.generateMaze();
     const startPos = this.getRandomOpenPosition();
     this.tank.pos = startPos.copy();
     this.tank.targetPos = startPos.copy();
 
-    if (this.level >= this.CONFIG.CHAOS_MONSTER_START_LEVEL) {
-      const monsterPos = this.getRandomOpenPosition();
-      this.chaosMonster = {
-        pos: monsterPos.copy(),
-        origin: monsterPos.copy(),
-        speed: this.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
-        holdingTarget: null,
-        target: null,
-      };
-    } else {
-      this.chaosMonster = null;
-    }
+    this.addCastOfCharacters();
 
     this.maxTargets =
       this.CONFIG.TARGETS_BASE +
@@ -211,7 +277,7 @@ export class MazeMemoryGame {
       } while (
         this.targets.some((t) => t.pos.equals(pos)) ||
         pos.equals(this.tank.pos) ||
-        (this.chaosMonster && pos.equals(this.chaosMonster.pos))
+        this.castOfCharacters.some((c) => c.pos.equals(pos))
       );
       this.targets.push({
         pos: pos,
@@ -221,12 +287,9 @@ export class MazeMemoryGame {
         color: this.targetColors[i - 1],
       });
     }
-    if (this.chaosMonster) {
-      this.chaosMonster.target = this.findNearestTarget(this.chaosMonster.pos);
-    }
 
     this.bullets = [];
-
+    // Power-up logic...
     if (this.level < this.CONFIG.POWER_UP_START_LEVEL) {
       this.powerUps = [];
     } else {
@@ -244,7 +307,7 @@ export class MazeMemoryGame {
         } while (
           this.targets.some((t) => t.pos.equals(pos)) ||
           pos.equals(this.tank.pos) ||
-          (this.chaosMonster && pos.equals(this.chaosMonster.pos)) ||
+          this.castOfCharacters.some((c) => c.pos.equals(pos)) ||
           this.powerUps.some((p) => p.pos.equals(pos))
         );
         return { pos: pos, opacity: 0, revealStart: performance.now() };
@@ -492,7 +555,7 @@ export class MazeMemoryGame {
 
     if (!this.gameOver) {
       this.movementEngine.updateTank(deltaTime);
-      this.movementEngine.updateChaosMonster(deltaTime);
+      this.movementEngine.updateCharacters(deltaTime); // Generalized update
       this.movementEngine.updateBullets(deltaTime);
 
       this.powerUps.forEach((p) => {

@@ -1,5 +1,9 @@
 import type { Vector2D } from "./Vector2D";
 
+export interface ICharacterLoader {
+  load(game: MazeMemoryGame): void;
+}
+
 /**
  * Represents the state and properties of the player's tank in the game.
  * @property {Vector2D} pos - The current position of the tank on the grid.
@@ -20,20 +24,24 @@ export interface Tank {
   ignoreCollisions: boolean;
 }
 
+export interface Character {
+  pos: Vector2D;
+  update(deltaTime: number, game: MazeMemoryGame): void;
+  onBulletHit?(bullet: Bullet): boolean; // Optional: returns true if bullet should be destroyed
+}
+
 /**
  * Represents the state and behavior of the chaos monster entity in the game.
- * @property {Vector2D} pos - The current position of the chaos monster on the grid.
  * @property {Vector2D} origin - The original position where the chaos monster starts or returns to.
  * @property {number} speed - The movement speed of the chaos monster.
  * @property {any} holdingTarget - The target currently being held by the chaos monster (type to be refined based on target structure).
  * @property {any} target - The target the chaos monster is currently pursuing (type to be refined based on target structure).
  */
-export interface ChaosMonster {
-  pos: Vector2D;
+export interface ChaosMonster extends Character {
   origin: Vector2D;
   speed: number;
-  holdingTarget: any;
-  target: any;
+  holdingTarget: Target | null;
+  target: Target | null;
 }
 
 /**
