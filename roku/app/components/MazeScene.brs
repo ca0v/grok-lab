@@ -15,7 +15,6 @@ sub Init()
     print "Maze generated: "; m.mazeWidth; "x"; m.mazeHeight; " (array: "; m.maze.Count(); "x"; m.maze[0].Count(); ")"
 
     m.tank = { pos: { x: 1, y: 1 }, targetPos: { x: 1, y: 1 }, dir: "right", currentAngle: 0 }
-    m.chaosMonster = invalid
     m.bullets = []
     m.targets = []
     m.powerUps = []
@@ -55,8 +54,6 @@ sub Init()
         "0111000000001110"
     ]
     BuildSprite(m.tankNode, tankPixelMap, m.cellSize)
-    m.chaosMonsterNode = m.top.FindNode("chaosMonster")
-    print "ChaosMonster: "; m.chaosMonsterNode <> invalid
     m.bulletsGroup = m.top.FindNode("bulletsGroup")
     print "BulletsGroup: "; m.bulletsGroup <> invalid
     m.targetsGroup = m.top.FindNode("targetsGroup")
@@ -85,8 +82,6 @@ sub Init()
     mazeOffsetY = m.screenHeight / 8
     m.mazeGroup.translation = [mazeOffsetX, mazeOffsetY]
     print "Maze offset: "; mazeOffsetX; ","; mazeOffsetY
-    m.chaosMonsterNode.width = m.cellSize
-    m.chaosMonsterNode.height = m.cellSize
     m.scoreboard.translation = [mazeOffsetX, m.screenHeight / 16]
     m.instructions.translation = [mazeOffsetX, m.screenHeight - m.screenHeight / 16]
     m.message.translation = [m.screenWidth / 2, m.screenHeight / 2]
@@ -199,22 +194,12 @@ sub InitLevel()
         label.font = "font:MediumBoldSystemFont"
         label.text = i.ToStr()
         label.color = "#FFFFFF"
-        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.3, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2] ' Center in 32x32 target
+        label.translation = [position.x * m.cellSize + mazeOffsetX + m.cellSize * 0.3, position.y * m.cellSize + mazeOffsetY + m.cellSize * 0.2]
         m.targetsGroup.AppendChild(targetGroup)
         m.targetsGroup.AppendChild(label)
         m.targets.Push({ pos: position, num: i, hit: false, node: targetGroup, label: label, flashTimer: 0 })
         print "Target "; i; " at: "; targetGroup.translation[0]; ","; targetGroup.translation[1]; " label at: "; label.translation[0]; ","; label.translation[1]
     end for
-
-    if m.level >= 4
-        position = GetRandomOpenPosition()
-        while IsPositionOccupied(position)
-            position = GetRandomOpenPosition()
-        end while
-        m.chaosMonster = { pos: position, origin: position, speed: 4, holdingTarget: invalid, target: invalid }
-        m.chaosMonsterNode.visible = true
-        UpdateChaosMonsterPosition()
-    end if
 
     if m.level >= 3
         powerUpCount = Min(Fix((m.level - 3) / 3), 5)
@@ -576,9 +561,6 @@ sub Update(deltaTime as float)
     ' Update tank (simplified, no smooth movement)
     UpdateTankPosition()
 
-    ' Update chaos monster
-    UpdateChaosMonster(deltaTime)
-
     ' Update bullets
     mazeOffsetX = (m.screenWidth - m.mazeWidth * m.cellSize) / 2
     mazeOffsetY = m.screenHeight / 8
@@ -610,9 +592,11 @@ sub Update(deltaTime as float)
                 target = m.targets[j]
                 if not target.hit and Abs(bullet.pos.x - target.pos.x) < 0.5 and Abs(bullet.pos.y - target.pos.y) < 0.5
                     if target.num = m.currentTarget
-                        target.hit = true
-                        target.node.visible = false
-                        target.label.visible = false
+                        ' Remove target from scene graph
+                        m.targetsGroup.RemoveChild(target.node)
+                        m.targetsGroup.RemoveChild(target.label)
+                        ' Remove target from m.targets
+                        m.targets.Delete(j)
                         m.score.hits = m.score.hits + 1
                         m.score.total = m.score.total + m.score.lives
                         m.currentTarget = m.currentTarget + 1
@@ -644,14 +628,20 @@ sub Update(deltaTime as float)
 
     ' Update targets (flash effect)
     for each target in m.targets
-        if target.flashTimer > 0
+        if target.hit
+            ' Ensure hit targets remain invisible and do not flash
+            target.node.visible = false
+            target.label.visible = false
+        else if target.flashTimer > 0
+            ' Only flash if not hit (out-of-sequence hit)
             target.flashTimer = target.flashTimer - deltaTime * 1000
             alpha = Max(0, target.flashTimer / 1000)
             target.label.color = "#FFFFFF" + ToHex(Fix(alpha * 255))
             if target.flashTimer <= 0 then target.label.visible = false
         else if m.numberTimer > 0 or (m.showNextTimer > 0 and target.num = m.currentTarget)
+            ' Show label for unhit targets when timers are active
             target.label.visible = true
-        else if not target.hit
+        else
             target.label.visible = false
         end if
     end for
@@ -670,14 +660,7 @@ sub Update(deltaTime as float)
             print "Game Over timer started"
         end if
     else
-        allTargetsHit = true
-        for each target in m.targets
-            if not target.hit
-                allTargetsHit = false
-                exit for
-            end if
-        end for
-        if allTargetsHit
+        if m.targets.Count() = 0
             m.levelCleared = true
             m.message.text = "Level Cleared!"
             m.message.visible = true

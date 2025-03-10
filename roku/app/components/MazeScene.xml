@@ -5,7 +5,6 @@
         <Rectangle id="background" color="#333333" />
         <Group id="mazeGroup" />
         <Group id="tank" />
-        <Rectangle id="chaosMonster" color="#00FF0080" visible="false" />
         <Group id="bulletsGroup" />
         <Group id="targetsGroup" />
         <Group id="powerUpsGroup" />
