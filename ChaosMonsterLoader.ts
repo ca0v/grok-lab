@@ -16,7 +16,7 @@ export class ChaosMonsterLoader implements ICharacterLoader {
         speed: game.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
         holdingTarget: null,
         target: null,
-        update(deltaTime: number, game: MazeMemoryGame) {
+        update(deltaTime: number) {
           if (this.holdingTarget) {
             const delta = this.origin.subtract(this.pos);
             const distance = delta.distanceTo(new Vector2D(0, 0));

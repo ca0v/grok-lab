@@ -133,7 +133,7 @@ export class MovementEngine {
 
   updateCharacters(deltaTime: number) {
     this.game.castOfCharacters.forEach((character) => {
-      character.update(deltaTime, this.game);
+      character.update(deltaTime);
     });
   }
 

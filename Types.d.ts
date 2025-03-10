@@ -26,7 +26,7 @@ export interface Tank {
 
 export interface Character {
   pos: Vector2D;
-  update(deltaTime: number, game: MazeMemoryGame): void;
+  update(deltaTime: number): void;
   onBulletHit?(bullet: Bullet): boolean; // Optional: returns true if bullet should be destroyed
 }
 
