@@ -8,6 +8,7 @@
     "build": "bslint app/**/*.brs && brs --files ./app/source/Main.brs ./app/components/MazeScene.brs",
     "deploy": "npm run build && node deploy.js",
     "grok": "node ./grok.js ./app | xclip -selection clipboard",
+    "telnet": "node deploy.js --telnet",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

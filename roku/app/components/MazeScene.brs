@@ -603,6 +603,7 @@ sub Update(deltaTime as float)
                     else
                         m.score.lives = m.score.lives - 1
                         target.flashTimer = 1000
+                        print "Wrong target hit: "; target.num; " - flashTimer set to "; target.flashTimer
                     end if
                     m.bulletsGroup.RemoveChild(bullet.node)
                     m.bullets.Delete(i)
@@ -633,14 +634,20 @@ sub Update(deltaTime as float)
             target.node.visible = false
             target.label.visible = false
         else if target.flashTimer > 0
-            ' Only flash if not hit (out-of-sequence hit)
+            ' Flash for wrong targets
             target.flashTimer = target.flashTimer - deltaTime * 1000
             alpha = Max(0, target.flashTimer / 1000)
             target.label.color = "#FFFFFF" + ToHex(Fix(alpha * 255))
-            if target.flashTimer <= 0 then target.label.visible = false
-        else if m.numberTimer > 0 or (m.showNextTimer > 0 and target.num = m.currentTarget)
-            ' Show label for unhit targets when timers are active
             target.label.visible = true
+            print "Flashing target "; target.num; " - flashTimer: "; target.flashTimer; " alpha: "; alpha
+            if target.flashTimer <= 0
+                target.label.visible = false
+                print "Flash ended for target "; target.num
+            end if
+        else if m.numberTimer > 0 or (m.showNextTimer > 0 and target.num = m.currentTarget)
+            ' Show label for unhit, non-flashing targets when timers are active
+            target.label.visible = true
+            target.label.color = "#FFFFFF"
         else
             target.label.visible = false
         end if
@@ -795,7 +802,7 @@ function CopyArray(source as object) as object
     return copy
 end function
 
-function Min(a as integer, b as integer) as integer
+function Min(a as float, b as float) as float
     if a < b then
         return a
     else
@@ -803,7 +810,7 @@ function Min(a as integer, b as integer) as integer
     end if
 end function
 
-function Max(a as integer, b as integer) as integer
+function Max(a as float, b as float) as float
     if a > b then
         return a
     else

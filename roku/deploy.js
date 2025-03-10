@@ -15,6 +15,7 @@ const deployOptions = {
   retainStagingFolder: true
 };
 
+// Function to fetch logs for a short duration (used in error handling)
 async function fetchRokuLogs(host) {
   return new Promise((resolve) => {
     const client = new net.Socket();
@@ -36,6 +37,33 @@ async function fetchRokuLogs(host) {
   });
 }
 
+// Function for real-time Telnet watching
+function watchRokuLogs(host) {
+  const client = new net.Socket();
+  client.connect(8085, host, () => {
+    console.log(`Connected to Roku Telnet (port 8085) at ${host}`);
+    console.log('Watching logs in real-time... (Ctrl+C to exit)');
+  });
+  client.on("data", (data) => {
+    process.stdout.write(data.toString());
+  });
+  client.on("error", (err) => {
+    console.error("Telnet error:", err.message);
+    process.exit(1);
+  });
+  client.on("close", () => {
+    console.log("Telnet connection closed");
+    process.exit(0);
+  });
+  // Handle Ctrl+C gracefully
+  process.on('SIGINT', () => {
+    client.destroy();
+    console.log('\nTelnet connection terminated');
+    process.exit(0);
+  });
+}
+
+// Deploy function
 async function deploy() {
   try {
     console.log(`Zipping and deploying to Roku at ${deployOptions.host}...`);
@@ -57,4 +85,14 @@ async function deploy() {
   }
 }
 
-deploy();
+// Main logic based on command-line argument
+const args = process.argv.slice(2);
+if (args.includes('--telnet')) {
+  if (!deployOptions.host) {
+    console.error('Error: ROKU_HOST not set in .env file or environment');
+    process.exit(1);
+  }
+  watchRokuLogs(deployOptions.host);
+} else {
+  deploy();
+}
