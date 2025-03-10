@@ -24,8 +24,8 @@ export class PowerUpLoader implements ICharacterLoader {
           game.castOfCharacters.some((c) => c.pos.equals(pos))
         );
         const powerUp: PowerUp = {
-          type: "powerUp",
           pos,
+          type: "powerUp",
           opacity: 0,
           revealStart: performance.now(),
           update(deltaTime: number) {
@@ -45,9 +45,25 @@ export class PowerUpLoader implements ICharacterLoader {
               game.numberTimer = game.CONFIG.INITIAL_NUMBER_TIMER;
               const index = game.castOfCharacters.indexOf(this);
               if (index !== -1) game.castOfCharacters.splice(index, 1);
-              return true; // Destroy bullet
+              return true;
             }
-            return false; // Bullet passes through if not fully revealed
+            return false;
+          },
+          draw(ctx: CanvasRenderingContext2D) {
+            ctx.save();
+            ctx.translate(
+              this.pos.x * game.cellSize + game.cellSize / 2,
+              this.pos.y * game.cellSize +
+                game.cellSize / 2 +
+                game.topBorderSize
+            );
+            const radius =
+              (game.cellSize / 2) * game.CONFIG.POWER_UP_RADIUS_SCALE;
+            ctx.fillStyle = `rgba(255, 255, 0, ${this.opacity})`;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
           },
         };
         game.castOfCharacters.push(powerUp);

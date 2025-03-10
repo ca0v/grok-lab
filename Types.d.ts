@@ -28,7 +28,8 @@ export interface Character {
   pos: Vector2D;
   type: string;
   update(deltaTime: number): void;
-  onBulletHit?(bullet: Bullet): boolean; // Optional: returns true if bullet should be destroyed
+  draw(ctx: CanvasRenderingContext2D): void;
+  onBulletHit?(bullet: Bullet): boolean;
 }
 
 export interface PowerUp extends Character {

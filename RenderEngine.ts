@@ -26,39 +26,11 @@ export class RenderEngine {
   }
 
   drawCharacters() {
-    this.game.castOfCharacters.forEach((character) => {
-      this.ctx.save();
-      this.ctx.translate(
-        character.pos.x * this.game.cellSize + this.game.cellSize / 2,
-        character.pos.y * this.game.cellSize +
-          this.game.cellSize / 2 +
-          this.game.topBorderSize
-      );
-
-      switch (character.type) {
-        case "chaosMonster":
-          const radius =
-            (this.game.cellSize / 2) * this.CONFIG.TANK_RADIUS_SCALE;
-          this.ctx.fillStyle = this.CONFIG.CHAOS_MONSTER_COLOR;
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
-          this.ctx.fill();
-          break;
-        case "powerUp":
-          const powerUp = character as PowerUp;
-          const powerUpRadius =
-            (this.game.cellSize / 2) * this.CONFIG.POWER_UP_RADIUS_SCALE;
-          this.ctx.fillStyle = `rgba(255, 255, 0, ${powerUp.opacity})`;
-          this.ctx.beginPath();
-          this.ctx.arc(0, 0, powerUpRadius, 0, Math.PI * 2);
-          this.ctx.fill();
-          break;
-      }
-
-      this.ctx.restore();
+    this.game.castOfCharacters.forEach(character => {
+      character.draw(this.ctx); // Delegate rendering to the character
     });
   }
-
+  
   drawMaze() {
     const bgColor = getComputedStyle(document.documentElement)
       .getPropertyValue("--grid-bg")

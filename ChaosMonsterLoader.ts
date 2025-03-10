@@ -11,8 +11,8 @@ export class ChaosMonsterLoader implements ICharacterLoader {
         (game.level - 1) / game.CONFIG.LEVELS_PER_CYCLE
       );
       const chaosMonster: ChaosMonster = {
-        type: "chaosMonster",
         pos: monsterPos.copy(),
+        type: "chaosMonster",
         origin: monsterPos.copy(),
         speed: game.CONFIG.CHAOS_MONSTER_SPEED + difficulty,
         holdingTarget: null,
@@ -53,6 +53,19 @@ export class ChaosMonsterLoader implements ICharacterLoader {
               this.target = null;
             }
           }
+        },
+        draw(ctx: CanvasRenderingContext2D) {
+          ctx.save();
+          ctx.translate(
+            this.pos.x * game.cellSize + game.cellSize / 2,
+            this.pos.y * game.cellSize + game.cellSize / 2 + game.topBorderSize
+          );
+          const radius = (game.cellSize / 2) * game.CONFIG.TANK_RADIUS_SCALE;
+          ctx.fillStyle = game.CONFIG.CHAOS_MONSTER_COLOR;
+          ctx.beginPath();
+          ctx.arc(0, 0, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         },
       };
       game.castOfCharacters.push(chaosMonster);
