@@ -6,9 +6,9 @@ sub Init()
     m.screenHeight = screenSize.h
     print "Screen size: "; m.screenWidth; "x"; m.screenHeight
 
-    m.cellSize = m.screenWidth / 32
-    m.mazeWidth = 21
-    m.mazeHeight = 13
+    m.cellSize = m.screenWidth / 20
+    m.mazeWidth = 17
+    m.mazeHeight = 9
     if m.mazeWidth mod 2 = 0 then m.mazeWidth = m.mazeWidth + 1
     if m.mazeHeight mod 2 = 0 then m.mazeHeight = m.mazeHeight + 1
     m.maze = GenerateMaze(m.mazeWidth, m.mazeHeight)
